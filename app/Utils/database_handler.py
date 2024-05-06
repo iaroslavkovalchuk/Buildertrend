@@ -4,7 +4,7 @@ from datetime import datetime
 
 
 class DatabaseHandler:
-    def __init__(self, host='localhost', user='first', password='six stars', database='BuilderTrend'):
+    def __init__(self, host='localhost', user='root', password='password', database='BuilderTrend'):
         self.db = mysql.connector.connect(
             host=host,
             user=user,
