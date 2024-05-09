@@ -39,8 +39,8 @@ class DatabaseHandler:
     # *********** using now ************
     def insert_customer(self, first_name="", last_name="", email="", phone="", address=""):
         # Check if customer already exists
-        sql_check = "SELECT id FROM tbl_customer WHERE first_name = %s AND last_name = %s AND email = %s AND phone = %s"
-        val_check = (first_name, last_name, email, phone)
+        sql_check = "SELECT id FROM tbl_customer WHERE first_name = %s AND last_name = %s AND email = %s AND phone = %s AND address = %s"
+        val_check = (first_name, last_name, email, phone, address)
         self.cursor.execute(sql_check, val_check)
         result = self.cursor.fetchone()
 

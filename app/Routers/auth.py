@@ -20,11 +20,6 @@ def signin_for_access_token(email: str = Form(...), password: str = Form(...)):
     user = authenticate_user(email, password)
     print(user)
     if not user:
-        # raise HTTPException(
-        #     status_code=status.HTTP_401_UNAUTHORIZED,
-        #     detail="Incorrect username or password",
-        #     headers={"WWW-Authenticate": "Bearer"},
-        # )
         return JSONResponse(content={"success": False}, status_code=401)
     email = user[1]
     hashed_password = user[2]

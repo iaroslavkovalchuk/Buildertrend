@@ -26,7 +26,7 @@ def job():
         claim_number = report['claim_number'] 
         project_id = db_handler.insert_project(claim_number, customer_id)
         flag = 0
-        
+
         db_handler.set_project_status(project_id, send_method, datetime.utcnow())
         
         # Insert each report into the database
@@ -42,4 +42,3 @@ def job():
             # Save message in this claim
             db_handler.set_project_message(project_id, last_message)
     print("DB updated!")
-    

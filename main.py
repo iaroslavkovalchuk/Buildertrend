@@ -45,4 +45,4 @@ if __name__ == "__main__":
     # t = threading.Thread(target=run_schedule) # run the schedule in a separate thread
     # t.start()
     # job()
-    uvicorn.run("main:app", host="0.0.0.0", port=7001, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
