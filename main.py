@@ -41,11 +41,11 @@ async def health_checker():
     return {"status": "success"}
 
 if __name__ == "__main__":
-    try:
+    uvicorn.run("main:app", host="0.0.0.0", port=7001, reload=True)
+    # try:
         # schedule.every(12).hours.do(job) # schedule the job every 10 minutes
         # t = threading.Thread(target=run_schedule) # run the schedule in a separate thread
         # t.start()
-        job()
-    except:
-        print("reqular DB update error!")
-    uvicorn.run("main:app", host="0.0.0.0", port=7001, reload=True)
+    #     job()
+    # except:
+        # print("reqular DB update error!")

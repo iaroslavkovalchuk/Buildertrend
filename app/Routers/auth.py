@@ -42,7 +42,7 @@ def signup(email: str = Form(...), password: str = Form(...), confirm_password: 
     password_in_db = get_password_hash(password)
     forgot_password_token = secrets.token_urlsafe()
 
-    
+    print("password_in_db: ", password_in_db)
     user = db.get_user(email)
     if not user:
         print(email, password_in_db)

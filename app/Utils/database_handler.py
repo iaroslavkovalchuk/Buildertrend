@@ -31,7 +31,7 @@ class DatabaseHandler:
 
     def get_main_table(self):
         sql = """ 
-            SELECT A.id as customer_id, A.first_name, A.last_name, B.id AS id, B.claim_number, B.last_message, B.message_status, B.qued_timestamp, B.sent_timestamp, A.sending_method, A.email, A.phone, B.phone_sent_success, B.email_sent_success FROM
+            SELECT A.id as customer_id, A.first_name, A.last_name, B.id AS id, B.claim_number, B.project_name, B.last_message, B.message_status, B.qued_timestamp, B.sent_timestamp, A.sending_method, A.email, A.phone, B.phone_sent_success, B.email_sent_success FROM
             (SELECT * FROM tbl_customer)A LEFT JOIN
             (SELECT * FROM tbl_project)B ON B.customer_id = A.id
         """
@@ -42,12 +42,14 @@ class DatabaseHandler:
         # """
         self.cursor.execute(sql)
         project_list = self.cursor.fetchall()
+        
         table_data = []
         for project in project_list:
             data_dict = dict(zip(MainTableModel.__fields__.keys(), project))
+            if data_dict['claim_number'] in ('n/a', '?', '0'):
+                data_dict['claim_number'] = 'N/A'
             table_data_instance = MainTableModel(**data_dict)
             table_data.append(table_data_instance)
-
         return table_data
 
     # CRUD Operations for tbl_customer

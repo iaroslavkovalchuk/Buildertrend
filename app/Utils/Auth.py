@@ -21,6 +21,8 @@ ALGORITHM = os.getenv('ALGORITHM')
 
 def verify_password(plain_password, hashed_password):
     print(plain_password, hashed_password)
+    print("hass: ", hashed_password)
+    print(pwd_context.verify(plain_password, hashed_password))
     return pwd_context.verify(plain_password, hashed_password)
 
 
@@ -34,6 +36,7 @@ def authenticate_user(email: str, password: str):
         return False
     if not verify_password(password, user[2]):
         return False
+    
     return user
 
 
