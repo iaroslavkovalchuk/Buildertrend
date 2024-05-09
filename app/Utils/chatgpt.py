@@ -14,7 +14,7 @@ def get_last_message(report_list: list, customer_name: str):
     
     instruction = f"""
         I need to create a personalized and comprehensive work report for our customer, {customer_name}.
-        The important thing is that the length of this report shouldn't more than 400 characters.
+        The important thing is that the length of this report shouldn't more than 520 characters.
         The report should be a synthesis of the historical reports we have on the progress of their project.
         Focus on the most recent data in the historical timeline here emphazie and focus on the most recent update in the historical timeline.
         {report_history}
@@ -38,10 +38,9 @@ def get_last_message(report_list: list, customer_name: str):
             messages=[
                 {'role': 'system', 'content': instruction},
                 {'role': 'user', 'content': f"""
-                    Please provide personalized report less than 400 characters.
+                    Please provide personalized report less than 520 characters.
                 """}
             ],
-            seed=2425,
             temperature = 0.7
         )
     response_message = response.choices[0].message.content

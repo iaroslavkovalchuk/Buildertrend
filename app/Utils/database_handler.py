@@ -2,9 +2,24 @@ import mysql.connector
 from app.Model.MainTable import MainTableModel, ProjectMessageModel
 from datetime import datetime
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+host = os.getenv("MYSQL_HOST")
+user = os.getenv("MYSQL_USER")
+password = os.getenv("MYSQL_PASSWORD")
+database = os.getenv("MYSQL_DATABASE")
+
+print(host)
+print(user)
+print(password)
+print(database)
+
 
 class DatabaseHandler:
-    def __init__(self, host='localhost', user='first', password='six stars', database='BuilderTrend'):
+    def __init__(self, host=host, user=user, password=password, database=database):
         self.db = mysql.connector.connect(
             host=host,
             user=user,
@@ -39,8 +54,8 @@ class DatabaseHandler:
     # *********** using now ************
     def insert_customer(self, first_name="", last_name="", email="", phone="", address=""):
         # Check if customer already exists
-        sql_check = "SELECT id FROM tbl_customer WHERE first_name = %s AND last_name = %s AND email = %s AND phone = %s"
-        val_check = (first_name, last_name, email, phone)
+        sql_check = "SELECT id FROM tbl_customer WHERE first_name = %s AND last_name = %s AND email = %s AND phone = %s AND address = %s"
+        val_check = (first_name, last_name, email, phone, address)
         self.cursor.execute(sql_check, val_check)
         result = self.cursor.fetchone()
 
@@ -49,7 +64,7 @@ class DatabaseHandler:
             return result[0]
         else:
             # If customer does not exist, insert them and return their ID
-            sql_insert = "INSERT INTO tbl_customer (first_name, last_name, email, phone, address, send_method) VALUES (%s, %s, %s, %s, %s, %s)"
+            sql_insert = "INSERT INTO tbl_customer (first_name, last_name, email, phone, address, sending_method) VALUES (%s, %s, %s, %s, %s, %s)"
             val_insert = (first_name, last_name, email, phone, address, 1)
             self.cursor.execute(sql_insert, val_insert)
             self.db.commit()
@@ -112,20 +127,22 @@ class DatabaseHandler:
         return value.length != 0
     
     # CRUD Operations for tbl_project
-    def insert_project(self, claim_number, customer_id):
+    def insert_project(self, claim_number, customer_id, project_name):
         # Check if project already exists
         sql_check = "SELECT id FROM tbl_project WHERE claim_number = %s AND customer_id = %s AND project_name = %s"
-        val_check = (claim_number, customer_id, claim_number)
+        val_check = (claim_number, customer_id, project_name)
         self.cursor.execute(sql_check, val_check)
         result = self.cursor.fetchone()
 
         if result is None:
             # If project does not exist, insert it
             sql_insert = "INSERT INTO tbl_project (claim_number, customer_id, project_name) VALUES (%s, %s, %s)"
-            val_insert = (claim_number, customer_id, claim_number)
+            val_insert = (claim_number, customer_id, project_name)
             self.cursor.execute(sql_insert, val_insert)
             self.db.commit()
             return self.cursor.lastrowid
+        print("already exist: ", result[0])
+        return result[0]
 
     def get_project(self, id):
         sql = "SELECT * FROM tbl_project WHERE id = %s"
@@ -143,7 +160,7 @@ class DatabaseHandler:
         val = (claim_number, project_name, last_message, message_status, id)
         self.cursor.execute(sql, val)
         self.db.commit()
-        
+
     def update_project_sent_status(self, id, phone_sent_success, email_sent_sucess):
         sql = "UPDATE tbl_project SET phone_sent_success = %s, email_sent_sucess = %s WHERE id = %s"
         val = (phone_sent_success, email_sent_sucess, id)
