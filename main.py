@@ -46,6 +46,6 @@ if __name__ == "__main__":
         # schedule.every(12).hours.do(job) # schedule the job every 10 minutes
         # t = threading.Thread(target=run_schedule) # run the schedule in a separate thread
         # t.start()
-        # job()
+    #     job()
     # except:
-    #     print("reqular DB update error!")
+        # print("reqular DB update error!")

@@ -9,6 +9,7 @@ class MainTableModel(BaseModel):
     lastname: Optional[str]
     project_id: int
     claim_number: Optional[str]
+    project_name: Optional[str]
     last_message: Optional[str]
     message_status: Optional[int]
     qued_timestamp: Optional[datetime]
