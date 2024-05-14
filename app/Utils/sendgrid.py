@@ -2,16 +2,29 @@ from sendgrid.helpers.mail import Mail, Email, To, Content
 import sendgrid
 import os
 from dotenv import load_dotenv
-load_dotenv()
+from app.Utils.database_handler import DatabaseHandler
 
-sendgrid_client = sendgrid.SendGridAPIClient(api_key=os.getenv('SENDGRID_API_KEY'))
+load_dotenv()
+db = DatabaseHandler()
+variables = db.get_variables()
+
 from_mail = os.getenv("SENDGRID_FROM_EMAIL")
+api_key = os.getenv('SENDGRID_API_KEY')
+
+if variables is not None:
+    from_mail = variables[5]
+    api_key = variables[6]
+
+sendgrid_client = sendgrid.SendGridAPIClient(api_key=api_key)
+
 
 def send_mail(text: str, subject: str, to_email: str):
     try:
+        # to_email = "serhiivernyhora@outlook.com"
         from_email_obj = Email(from_mail)  # Change to your verified sender
         to_email_obj = To(to_email)  # Change to your recipient
         content = Content("text/plain", text)
+        
         mail = Mail(from_email_obj, to_email_obj, subject, content)
 
         # Get a JSON-ready representation of the Mail object

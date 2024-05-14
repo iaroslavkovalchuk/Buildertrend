@@ -11,7 +11,7 @@ from app.Utils.chatgpt import get_last_message
 from app.Utils.regular_update import job
 from app.Utils.regular_send import send
 from app.Utils.Auth import get_current_user
-
+from app.Model.Settings import SettingsModel
 
 from datetime import datetime, timedelta
 import asyncio
@@ -111,3 +111,14 @@ async def delete_customer(email: Annotated[str, Depends(get_current_user)], cust
 async def send_message(email: Annotated[str, Depends(get_current_user)]):
     send()
     return True
+
+@router.post('/set-variables')
+def set_variables(variables: SettingsModel):
+    data = db.get_variables()
+    print(data)
+    if data == None:
+        print('here1')
+        db.insert_variables(variables)
+    else:
+        print('here2')
+        db.update_variables(variables)

@@ -19,6 +19,7 @@ db = DatabaseHandler()
 def signin_for_access_token(email: str = Form(...), password: str = Form(...)):
     user = authenticate_user(email, password)
     print(user)
+    print(type(user))
     if not user:
         # raise HTTPException(
         #     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -37,6 +38,7 @@ def signin_for_access_token(email: str = Form(...), password: str = Form(...)):
 
 @router.post("/signup")
 def signup(email: str = Form(...), password: str = Form(...), confirm_password: str = Form(...)):
+    print(password, "   ", confirm_password)
     if password != confirm_password:
         return False
     password_in_db = get_password_hash(password)
@@ -75,5 +77,6 @@ def change_password(token: str = Form(...), email: str = Form(...), new_password
         return JSONResponse(content={"success": False}, status_code=303)
     else:
         password_in_db = get_password_hash(new_password)
+        print(password_in_db)
         db.update_user(email, password_in_db, token)
         return JSONResponse(content={"success": True}, status_code=200)

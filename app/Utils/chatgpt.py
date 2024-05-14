@@ -1,11 +1,22 @@
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
+from app.Utils.database_handler import DatabaseHandler
 
 load_dotenv()
-client = OpenAI()
+db = DatabaseHandler()
 
-def get_last_message(report_list: list, customer_name: str):
+api_key = os.getenv('OPENAI_API_KEY')
+
+variables = db.get_variables()
+
+if variables is not None:
+    api_key = variables[1]
+
+client = OpenAI(api_key=api_key)
+
+# def get_last_message(report_list: list, customer_name: str):
+def get_last_message(report_list, customer_name: str):
     if report_list == []:
         return ""
     report_history = ''
@@ -13,23 +24,20 @@ def get_last_message(report_list: list, customer_name: str):
         report_history += '\n' + report[2] # 2 means message column
     
     instruction = f"""
-        I need to create a personalized and comprehensive work report for our customer, {customer_name}.
-        The important thing is that the length of this report shouldn't more than 520 characters.
-        The report should be a synthesis of the historical reports we have on the progress of their project.
-        Focus on the most recent data in the historical timeline here emphazie and focus on the most recent update in the historical timeline.
+        I need a 300 character work report for our customer, {customer_name}, summarizing the latest update in the project timeline.
+        This is the historical report on the progress of this project.
         {report_history}
-        
-        It should not reference individual employees but rather present the collective efforts of our team.
+        Focus on:
+        Introduction acknowledging our role as their contractor.
+        Overview of project objectives and recent progress.
+        Summary of milestones, deliverables, and key metrics.
+        Notable challenges and solutions.
+        Next steps and expected outcomes.
+        Conclusion emphasizing our commitment and appreciation.
+        When there are no new work orders or changes, focus on notable challenges, solutions, next steps, and appreciation.
 
-        Please include the following elements in a fluid and cohesive narrative:
 
-        - A brief introduction that sets the context for the report and acknowledges the ongoing partnership with the customer.
-        - An overview of the project's objectives and the progress made to date, drawing on the key points from the historical reports.
-        - A summary of the results achieved, focusing on milestones, deliverables, and any quantifiable metrics that illustrate the project's advancement.
-        - Any notable challenges that were encountered and the strategic approaches taken by our team to address them, ensuring continuous progress.
-        - A forward-looking statement that outlines the next steps and expected outcomes, reinforcing our commitment to meeting the project's goals and the customer's expectations.
-        - A conclusion that emphasizes the value we place on the customer's business and our dedication to delivering high-quality results.
-        - Please craft the report to be professional, engaging, and reflective of our company's brand and values. The language should be clear, concise, and geared towards reinforcing the customer's confidence in our capabilities and services.
+        The report should be professional, engaging, and reflect our brand. Exclude individual employee references.
     """
     
     response = client.chat.completions.create(

@@ -84,4 +84,16 @@ def job():
         except Exception as e:
             print(e)
     print("DB updated!")
-    
+
+
+def update_notification():
+    db_handler = DatabaseHandler()
+    project_list = db_handler.get_all_projects()
+    for project in project_list:
+        print(project)
+        customer = db_handler.get_customer(project[2])
+        reports_list = db_handler.get_report(project[0])
+        # Get personalized message based on reports
+        last_message = get_last_message(reports_list, customer[1] + ' ' + customer[2])
+        # Save message in this claim
+        db_handler.set_project_message(project[0], last_message)

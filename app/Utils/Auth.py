@@ -32,6 +32,7 @@ def get_password_hash(password):
 
 def authenticate_user(email: str, password: str):
     user = db.get_user(email)
+    print(user)
     if not user:
         return False
     if not verify_password(password, user[2]):
