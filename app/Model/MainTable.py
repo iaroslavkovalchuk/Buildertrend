@@ -4,21 +4,21 @@ from fastapi import Form
 from datetime import datetime
 
 class MainTableModel(BaseModel):
-    customer_id: Optional[int]
-    firstname: Optional[str]
-    lastname: Optional[str]
-    project_id: int
-    claim_number: Optional[str]
-    project_name: Optional[str]
-    last_message: Optional[str]
-    message_status: Optional[int]
-    qued_timestamp: Optional[datetime]
-    sent_timestamp: Optional[datetime]
-    sending_method: Optional[int]
-    email: Optional[str]
-    phone: Optional[str]
-    phone_sent_success: Optional[int]
-    email_sent_success: Optional[int]
+    customer_id: Optional[int] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    project_id: Optional[int] = None  # If project_id can be missing, make this Optional too
+    claim_number: Optional[str] = None
+    project_name: Optional[str] = None
+    last_message: Optional[str] = None
+    message_status: Optional[int] = None
+    qued_timestamp: Optional[datetime] = None
+    sent_timestamp: Optional[datetime] = None
+    sending_method: Optional[int] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    phone_sent_success: Optional[int] = None
+    email_sent_success: Optional[int] = None
 
 class ProjectMessageModel(BaseModel):
     history_id: Optional[int]

@@ -8,3 +8,5 @@ class SettingsModel(BaseModel):
     twilioAuthToken: Optional[str]
     sendgridEmail: Optional[str]
     sendgridApiKey: Optional[str]
+    prompts: Optional[str]
+    timer: Optional[str]

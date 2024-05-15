@@ -1,80 +1,92 @@
-import os
 from twilio.rest import Client
-
-from dotenv import load_dotenv
-from datetime import datetime, timedelta
-from app.Utils.database_handler import DatabaseHandler
+from sqlalchemy.orm import Session
+from database import SessionLocal
 from app.Utils.sendgrid import send_mail
+from dotenv import load_dotenv
+from datetime import datetime
+import app.Utils.database_handler as crud
+from app.Model.DatabaseModel import Variables
+import os
+
 load_dotenv()
 
-db = DatabaseHandler()
+# Dependency to get the database session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        
+twilioPhoneNumber = os.getenv("TWILIO_PHONE_NUMBER")
+twilioAccountSID = os.getenv("TWILIO_ACCOUNT_SID")
+twilioAuthToken = os.getenv("TWILIO_AUTH_TOKEN")
 
-variables = db.get_variables()
 
-def send_sms_via_phone_number(phone_number: str, sms: str):
-    
-    # Fetch your Account SID and Auth Token from environment variables
-    account_sid = os.getenv('TWILIO_ACCOUNT_SID')
-    auth_token = os.getenv('TWILIO_AUTH_TOKEN')
-    twilio_number = os.getenv('TWILIO_PHONE_NUMBER')
-    
-    
-    
-    if variables is not None:
-        account_sid = variables[3]
-        auth_token = variables[4]
-        twilio_number = variables[2]
+def getTwilioCredentials(db: Session):
+    variables = crud.get_variables(db)
+    number = ''
+    sid = ''
+    token = ''
+    if variables:
+        number = variables.twilioPhoneNumber or twilioPhoneNumber
+        sid = variables.twilioAccountSID or twilioAccountSID
+        token = variables.twilioAuthToken or twilioAuthToken
+    else:
+        number = twilioPhoneNumber
+        sid = twilioAccountSID
+        token = twilioAuthToken
+    return number, sid, token
 
+
+def send_sms_via_phone_number(phone_number: str, sms: str, db: Session):
+    twilioPhoneNumber, twilioAccountSID, twilioAuthToken = getTwilioCredentials(db)
+    
     # Initialize the Twilio client
-    client = Client(account_sid, auth_token)
-
-    # Your Twilio phone number (purchased from Twilio Console)
+    client = Client(twilioAccountSID, twilioAuthToken)
 
     # Send the SMS
-    print("phone number: ", phone_number)
     message = client.messages.create(
-        to="+1 320 5471980",
-        from_=twilio_number,
+        to="+1 320 5471980",  # Test phone number, replace with `phone_number` in production
+        from_=twilioPhoneNumber,
         body=sms
     )
-    message = client.messages.create(
-        to=phone_number,
-        from_=twilio_number,
-        body=sms
-    )
-
 
     # Optionally print the message SID
-    if message.sid:
-        return True
-    else:
-        return False
+    return bool(message.sid)
     
-    
-def send(project_id):
-    project = db.get_project(project_id)
+def send(project_id: int, db: Session):
+    project = crud.get_project(db, project_id)
     sent_time = datetime.utcnow()
-    customer = db.get_customer(project[2])
-    phone_number = customer[4]
-    phone_sent_success = 0
-    email_sent_success = 0
-    if(db.check_duplicate_messgae(project[4]) == False): # check if it is duplicate message
+    customer = crud.get_customer(db, project.customer_id)
+    phone_number = customer.phone
+    phone_sent_success = False
+    email_sent_success = False
+    
+    
+    print("phone_number: ", phone_number)
+    print("email: ", customer.email)
+    print("phone_number: ", phone_number)
+    # return True
+    
+    if not crud.check_duplicate_message(db, project.last_message):  # check if it is a duplicate message
         try:
-            phone_sent_success = send_sms_via_phone_number(phone_number,  project[4]) # 4 means last_message
-        except:
-            phone_sent_success = 0
+            phone_sent_success = send_sms_via_phone_number(phone_number, project.last_message, db)
+        except Exception as e:
+            print(f"Error sending SMS: {e}")
+            phone_sent_success = False
         try:
-            print("email: ", project[3])
-            email_sent_success = send_mail(project[4], "Update" ,customer[3]) # 3 means email
-        except:
-            email_sent_success = 0
-        db.update_project_sent_status(project_id, phone_sent_success, email_sent_success)
+            email_sent_success = send_mail(project.last_message, "Update", customer.email)
+        except Exception as e:
+            print(f"Error sending email: {e}")
+            email_sent_success = False
+        crud.update_project_sent_status(db, project_id, phone_sent_success, email_sent_success)
     else:
-        db.update_project_sent_status(project_id, phone_sent_success, email_sent_success)
+        crud.update_project_sent_status(db, project_id, phone_sent_success, email_sent_success)
         return False
     
     print("phone_sent_success: ", phone_sent_success)
     print("email_sent_success: ", email_sent_success)
-    db.set_project_sent(project_id, 3, sent_time) # update function error
-    db.insert_message_history(project[4], project_id)
+    crud.set_project_sent(db, project_id, 3, sent_time)
+    crud.insert_message_history(db, project.last_message, project_id)
     return True

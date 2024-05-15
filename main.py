@@ -41,13 +41,4 @@ async def health_checker():
     return {"status": "success"}
 
 if __name__ == "__main__":
-    from app.Utils.regular_update import update_notification
-    update_notification()
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-    # try:
-        # schedule.every(12).hours.do(job) # schedule the job every 10 minutes
-        # t = threading.Thread(target=run_schedule) # run the schedule in a separate thread
-        # t.start()
-    # job()
-    # except:
-        # print("reqular DB update error!")
