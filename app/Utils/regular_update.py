@@ -32,21 +32,22 @@ def job(source: str):
 
 async def update_notification():
     db = SessionLocal()
-    project_list = crud.get_all_projects(db)
-    print('regular_update - project_list: ', project_list)
-    count = 0
-    for project in project_list:
-        if count > 10:
-            break
-        count += 1
-        print("regular_update - customer_id: ", project.customer_id)
-        print("regular_update - project_id: ", project.id)
-        customer = crud.get_customer(db, project.customer_id)
-        reports_list = crud.get_reports_by_project_id(db, project.id)
-        # Get personalized message based on reports
-        last_message = get_last_message(db, reports_list, customer.first_name + ' ' + customer.last_name)
-        crud.update_project(db, project.id, last_message=last_message)
-    db.close()
+    # project_list = crud.get_all_projects(db)
+    # print('regular_update - project_list: ', project_list)
+    # count = 0
+    # for project in project_list:
+    #     count += 1
+    #     print("regular_update - customer_id: ", project.customer_id)
+    #     print("regular_update - project_id: ", project.id)
+    #     customer = crud.get_customer(db, project.customer_id)
+    #     reports_list = crud.get_reports_by_project_id(db, project.id)
+    #     # Get personalized message based on reports
+    #     last_message = get_last_message(db, reports_list, customer.first_name + ' ' + customer.last_name)
+    #     crud.update_project(db, project.id, last_message=last_message)
+
+    variables = crud.get_variables(db)
+    if variables is not None:
+        crud.set_db_update_status(db, variables.id, 1)
 
 def update_database(data):    
     # Start a new SQLAlchemy session
@@ -57,6 +58,7 @@ def update_database(data):
             first_name = report['first_name']
             last_name = report['last_name']
             phone = report['phone']
+            phone = phone.replace(" ", "")
             if len(phone) < 5:
                 phone = ""
             address = report['address']
@@ -112,4 +114,8 @@ def update_database(data):
             print(e)
 
     print("DB updated!")
+    
+    variables = crud.get_variables(db)
+    if variables is not None:
+        crud.set_db_update_status(db, variables.id, 1)
     # db.close()

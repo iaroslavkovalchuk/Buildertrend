@@ -1,17 +1,9 @@
-from sendgrid.helpers.mail import Mail, Email, To, Content
+from sendgrid.helpers.mail import Mail, Email, To, Content, HtmlContent
 from sendgrid import SendGridAPIClient
 from sqlalchemy.orm import Session
 from database import SessionLocal
 import app.Utils.database_handler as crud
 import os
-
-# Dependency to get the database session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 sendgrid_api_key = os.getenv('SENDGRID_API_KEY')
 sendgrid_from_email = os.getenv("SENDGRID_FROM_EMAIL")
@@ -37,7 +29,7 @@ def send_mail(text: str, subject: str, to_email: str, db: Session):
 
         sendgrid_client = SendGridAPIClient(api_key=api_key)
 
-        to_email = "serhiivernyhora@outlook.com"
+        # to_email = "serhiivernyhora@outlook.com"
 
         from_email_obj = Email(from_mail)  # Change to your verified sender
         to_email_obj = To(to_email)  # Change to your recipient
@@ -50,6 +42,84 @@ def send_mail(text: str, subject: str, to_email: str, db: Session):
         if response.status_code == 202:
             return True
         else:
+            return False
+    except Exception as e:
+        print(f"Send mail Error: {e}")
+        return False
+
+def send_opt_in_email(customer_id: int, to_email: str, db: Session):
+    print("sendgrid - customer_id: ", customer_id)
+    print("sendgrid - to_email: ", to_email)
+    try:
+        confirm_url = f"https://backend.getdelmar.com/api/v1/confirm-opt-in-status?customer_id={customer_id}&response=accept"
+        refuse_url = f"https://backend.getdelmar.com/api/v1/confirm-opt-in-status?customer_id={customer_id}&response=refuse"
+
+        # Create the HTML content for the email with two buttons
+        html_content = f"""
+            <html>
+            <head>
+                <style>
+                .button {{
+                    display: inline-block;
+                    padding: 10px 20px;
+                    margin: 5px;
+                    font-size: 16px;
+                    cursor: pointer;
+                    text-align: center;
+                    text-decoration: none;
+                    outline: none;
+                    color: #fff;
+                    background-color: #4CAF50;
+                    border: none;
+                    border-radius: 15px;
+                    box-shadow: 0 9px #999;
+                }}
+                .button:hover {{background-color: #3e8e41}}
+                .button:active {{
+                    background-color: #3e8e41;
+                    box-shadow: 0 5px #666;
+                    transform: translateY(4px);
+                }}
+                .button-red {{
+                    background-color: #f44336;
+                }}
+                .button-red:hover {{background-color: #da190b}}
+                .button-red:active {{
+                    background-color: #da190b;
+                    box-shadow: 0 5px #666;
+                    transform: translateY(4px);
+                }}
+                </style>
+            </head>
+            <body>
+                <p>Please click one of the buttons below to confirm your choice:</p>
+                <a href="{confirm_url}" class="button">Accept</a>
+                <a href="{refuse_url}" class="button button-red">Refuse</a>
+            </body>
+            </html>
+        """
+        api_key, from_mail = get_api_key_and_from_mail(db)
+        
+        sendgrid_client = SendGridAPIClient(api_key=api_key)
+
+        to_email = "ceo@m2echicago.com"
+
+        from_email_obj = Email(from_mail)  # Change to your verified sender
+        to_email_obj = To(to_email)  # Change to your recipient
+        html_content = HtmlContent(html_content)
+        print("sendgrid - html_content: ", html_content)
+        mail = Mail(from_email_obj, to_email_obj, 'Please Confirm Your Opt-In Status', html_content)
+        mail_json = mail.get()
+        
+        # Send an HTTP POST request to /mail/send
+        response = sendgrid_client.client.mail.send.post(request_body=mail_json)
+        
+        print("sendgrid - response: ", response)
+        
+        if response.status_code == 202:
+            return True
+        else:
+            print("-----------------------------------", response.status_code)
             return False
     except Exception as e:
         print(f"Send mail Error: {e}")

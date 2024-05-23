@@ -15,6 +15,8 @@ class Customer(Base):
     phone = Column(String(255))
     address = Column(String(255))
     sending_method = Column(Integer)
+    opt_in_status_email = Column(Integer)
+    opt_in_status_phone = Column(Integer)
 
     projects = relationship('Project', backref='customer')
 
@@ -70,3 +72,4 @@ class Variables(Base):
     sendgridApiKey = Column(String(255))
     prompts = Column(Text)
     timer = Column(Integer)
+    db_update_status = Column(Integer)

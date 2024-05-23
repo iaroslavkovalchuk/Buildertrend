@@ -9,4 +9,5 @@ class SettingsModel(BaseModel):
     sendgridEmail: Optional[str]
     sendgridApiKey: Optional[str]
     prompts: Optional[str]
-    timer: Optional[str]
+    timer: Optional[int]
+    db_update_status: Optional[int] = 0

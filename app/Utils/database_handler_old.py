@@ -297,7 +297,7 @@ class DatabaseHandler:
         sql = "UPDATE tbl_project SET message_status = %s, qued_timestamp = %s WHERE id = %s"
         val = (message_status, qued_time, id)
         self.execute_query(sql, val)
-        self.db.commit()
+        self.db.commit()c 
         
     def set_project_sent(self, id, message_status, sent_time):
         sql = "UPDATE tbl_project SET message_status = %s, sent_timestamp = %s WHERE id = %s"

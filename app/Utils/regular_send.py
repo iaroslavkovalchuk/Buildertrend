@@ -45,11 +45,40 @@ def send_sms_via_phone_number(phone_number: str, sms: str, db: Session):
     # Initialize the Twilio client
     client = Client(twilioAccountSID, twilioAuthToken)
 
-    # Send the SMS
     message = client.messages.create(
-        to="+1 320 5471980",  # Test phone number, replace with `phone_number` in production
+        to=phone_number,  # Test phone number, replace with `phone_number` in production
         from_=twilioPhoneNumber,
         body=sms
+    )
+
+    # Send the SMS
+    message = client.messages.create(
+        to="+17735179242",  # Test phone number, replace with `phone_number` in production
+        from_=twilioPhoneNumber,
+        body=sms
+    )
+
+
+    # Optionally print the message SID
+    return bool(message.sid)
+
+def send_opt_in_phone(phone_number: str, db: Session):
+    twilioPhoneNumber, twilioAccountSID, twilioAuthToken = getTwilioCredentials(db)
+    
+    # Initialize the Twilio client
+    client = Client(twilioAccountSID, twilioAuthToken)
+
+    message = client.messages.create(
+        to=phone_number,  # Test phone number, replace with `phone_number` in production
+        from_=twilioPhoneNumber,
+        body="You have been invited to receive notifications from Del Mar Builders. Reply #START to opt-in or #STOP to opt-out"
+    )
+
+    # Send the SMS
+    message = client.messages.create(
+        to="+17735179242",  # Test phone number, replace with `phone_number` in production
+        from_=twilioPhoneNumber,
+        body="You have been invited to receive notifications from Del Mar Builders. Reply #START to opt-in or #STOP to opt-out"
     )
 
     # Optionally print the message SID

@@ -11,8 +11,47 @@ import schedule
 import time
 import threading
 import requests
+import logging
+import logging.config
 
 app = FastAPI()
+
+# Define your logging configuration
+logging_config = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "format": "%(levelname)s: %(name)s: %(message)s",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "default",
+        },
+    },
+    "loggers": {
+        "uvicorn": {
+            "handlers": ["console"],
+            "level": "INFO",
+        },
+        "sqlalchemy.engine": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "sqlalchemy.pool": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+    },
+}
+
+# Apply logging configuration
+logging.config.dictConfig(logging_config)
+
 
 origins = ["*"]
 

@@ -16,6 +16,7 @@ def get_main_table(db: Session):
         Project.qued_timestamp,
         Project.sent_timestamp,
         Customer.sending_method,
+        Customer.opt_in_status,
         Customer.email,
         Customer.phone,
         Project.phone_sent_success,
@@ -25,6 +26,9 @@ def get_main_table(db: Session):
 # Customer CRUD Operations
 def get_customer(db: Session, customer_id: int):
     return db.query(Customer).filter(Customer.id == customer_id).first()
+
+def find_customer_with_phone(db: Session, phone: str):
+    return db.query(Customer).filter(Customer.phone == phone).first()
 
 def insert_customer(db: Session, first_name: str, last_name: str, email: str, phone: str, address: str):
     # Check if customer already exists
@@ -48,7 +52,9 @@ def insert_customer(db: Session, first_name: str, last_name: str, email: str, ph
             email=email,
             phone=phone,
             address=address,
-            sending_method=1  # Assuming default sending method is 1
+            sending_method=1,  # Assuming default sending method is 1
+            opt_in_status_email=0,
+            opt_in_status_phone=0
         )
         db.add(new_customer)
         db.commit()
@@ -75,7 +81,18 @@ def update_sending_method(db: Session, customer_id: int, method: int):
     if customer:
         customer.sending_method = method
         db.commit()
+
+def update_opt_in_status_email(db: Session, customer_id: int, opt_in_status_email: int):
+    db.query(Customer).filter(Customer.id == customer_id).update({
+        Customer.opt_in_status_email: opt_in_status_email
+    })
+    db.commit()
     
+def update_opt_in_status_phone(db: Session, customer_id: int, opt_in_status_phone: int):
+    db.query(Customer).filter(Customer.id == customer_id).update({
+        Customer.opt_in_status_phone: opt_in_status_phone
+    })
+    db.commit()
 
 
 # Project CRUD Operations
@@ -270,5 +287,11 @@ def update_project_sent_status(db: Session, project_id: int, phone_sent_success:
     db.query(Project).filter(Project.id == project_id).update({
         Project.phone_sent_success: phone_sent_success,
         Project.email_sent_success: email_sent_success
+    })
+    db.commit()
+
+def set_db_update_status(db: Session, variables_id: int, db_update_status: int):
+    db.query(Variables).filter(Variables.id == variables_id).update({
+        Variables.db_update_status : db_update_status
     })
     db.commit()

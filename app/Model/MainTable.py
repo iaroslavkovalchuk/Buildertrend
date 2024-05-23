@@ -15,6 +15,8 @@ class MainTableModel(BaseModel):
     qued_timestamp: Optional[datetime] = None
     sent_timestamp: Optional[datetime] = None
     sending_method: Optional[int] = None
+    opt_in_status_email: Optional[int] = None
+    opt_in_status_phone: Optional[int] = None
     email: Optional[str] = None
     phone: Optional[str] = None
     phone_sent_success: Optional[int] = None

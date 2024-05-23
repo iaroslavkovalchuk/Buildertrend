@@ -1,16 +1,21 @@
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, File, UploadFile, Request
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, File, UploadFile, Request, Form
 from fastapi.responses import FileResponse
+from twilio.twiml.messaging_response import MessagingResponse
 from sqlalchemy.orm import Session
 from database import SessionLocal
+
 from app.Utils.chatgpt import get_last_message
 from app.Utils.regular_send import send
 from app.Utils.Auth import get_current_user
 from app.Model.Settings import SettingsModel
 from app.Model.MainTable import MainTableModel
 from app.Utils.regular_update import job, update_notification, update_database
+from app.Utils.regular_send import send_opt_in_phone
+from app.Utils.sendgrid import send_opt_in_email
+import app.Utils.database_handler as crud
+
 from typing import Annotated
 from datetime import datetime
-import app.Utils.database_handler as crud
 import os
 import json
 
@@ -129,9 +134,11 @@ async def send_message_route(email: Annotated[str, Depends(get_current_user)], d
     return {"success": "true"}
 
 @router.post('/set-variables')
-async def set_variables_route(email: Annotated[str, Depends(get_current_user)], variables: SettingsModel, db: Session = Depends(get_db)):
+async def set_variables_route(variables: SettingsModel, db: Session = Depends(get_db)):
+    
     data = crud.get_variables(db)
-    print(variables.timer)
+    print(data)
+    print("dashboard - set_variables", variables)
     if data is None:
         crud.create_variables(db, **variables.dict())
     else:
@@ -155,3 +162,83 @@ async def get_timer(email: Annotated[str, Depends(get_current_user)], db: Sessio
 async def rerun_chatgpt_route(email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
     await update_notification()
     return {"success": "true"}
+
+
+
+@router.get('/set-opt-in-status-email')
+def set_opt_in_status_email(email: Annotated[str, Depends(get_current_user)], customer_id: int, opt_in_status_email: int, db: Session = Depends(get_db)):
+    print("dashboard - customer_id: ", customer_id)
+    customer = crud.get_customer(db, customer_id)
+    send_opt_in_email(customer_id, customer.email, db)
+    crud.update_opt_in_status_email(db, customer_id, opt_in_status_email)
+    return True
+
+@router.get('/set-opt-in-status-phone')
+def set_opt_in_status_phone(email: Annotated[str, Depends(get_current_user)], customer_id: int, opt_in_status_phone: int, db: Session = Depends(get_db)):
+    print("dashboard - customer_id: ", customer_id)
+    customer = crud.get_customer(db, customer_id)
+    send_opt_in_phone(customer.phone, db)
+    crud.update_opt_in_status_phone(db, customer_id, opt_in_status_phone)
+    return True
+
+@router.get('/confirm-opt-in-status')
+def set_opt_in_status(customer_id: int, response: str, db: Session = Depends(get_db)):
+    print("dashboard - customer_id: ", customer_id)
+    
+    crud.update_opt_in_status_email(db, customer_id, 2 if response == "accept" else 3)
+    if response == "accept":
+        return "Sent Successfully! Congulatulations!"
+    else:
+        return "Sent Successfully!"
+    
+
+@router.post("/incoming-sms")
+async def handle_sms(Body: str = Form(...), From: str = Form(...), db: Session = Depends(get_db)):
+    # Convert message to uppercase for consistent matching
+    incoming_msg = Body.strip().upper()
+    From = From.replace(' ', '')
+    print("dashboard - From: ", From)
+    # Create a Twilio MessagingResponse object
+    response = MessagingResponse()
+    
+    # Check if the incoming message is a recognized keyword
+    if incoming_msg == "#STOP":
+        customer = crud.find_customer_with_phone(db, From)
+        if customer is not None:
+            crud.update_opt_in_status_phone(db, customer.id, 3) # Set as Opt Out
+        response.message("You have been unsubscribed from messages. Reply with #START to subscribe again.")
+    elif incoming_msg == "#START":
+        # Update your database to mark this number as opted-in
+        customer = crud.find_customer_with_phone(db, From)
+        if customer is not None:
+            crud.update_opt_in_status_phone(db, customer.id, 2) # Set as Opt In
+        response.message("You have been subscribed to messages.")
+    else:
+        # The message is not a recognized keyword
+        response.message("Sorry, we did not understand your message. Reply with #STOP to unsubscribe or #START to subscribe.")
+
+    # Return the response to Twilio
+    return response.to_xml()
+
+
+@router.get('/variables')
+def get_variables(email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
+    
+    data = crud.get_variables(db)
+    return data
+
+@router.get('/check-database-update')
+def get_variables(email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
+    
+    data = crud.get_variables(db)
+    if data is None:
+        return False
+    
+    db_update_status = data.db_update_status
+    print("dashboard - data.db_update_status: ", data.db_update_status)
+    
+    if db_update_status:
+        crud.set_db_update_status(db, data.id, 0)
+        return True
+    else:
+        return False
