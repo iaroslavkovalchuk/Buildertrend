@@ -28,9 +28,8 @@ def send_mail(text: str, subject: str, to_email: str, db: Session):
         api_key, from_mail = get_api_key_and_from_mail(db)
 
         sendgrid_client = SendGridAPIClient(api_key=api_key)
-
-        # to_email = "serhiivernyhora@outlook.com"
-
+        print("sendgrid - to_email", to_email)
+        # to_email = "ceo@m2echicago.com"
         from_email_obj = Email(from_mail)  # Change to your verified sender
         to_email_obj = To(to_email)  # Change to your recipient
         content = Content("text/plain", text)
@@ -102,7 +101,8 @@ def send_opt_in_email(customer_id: int, to_email: str, db: Session):
         
         sendgrid_client = SendGridAPIClient(api_key=api_key)
 
-        to_email = "ceo@m2echicago.com"
+        # to_email = "ceo@m2echicago.com"
+        # to_email = "aragrygorian910@gmail.com"
 
         from_email_obj = Email(from_mail)  # Change to your verified sender
         to_email_obj = To(to_email)  # Change to your recipient

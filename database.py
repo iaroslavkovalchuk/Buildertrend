@@ -13,7 +13,7 @@ database = os.getenv("MYSQL_DATABASE")
 
 DATABASE_URI = f"mysql+pymysql://{user}:{password}@{host}/{database}"
 
-engine = create_engine(DATABASE_URI, echo=True)
+engine = create_engine(DATABASE_URI, echo=True, pool_size=10)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base.metadata.create_all(bind=engine)

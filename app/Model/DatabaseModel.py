@@ -17,7 +17,9 @@ class Customer(Base):
     sending_method = Column(Integer)
     opt_in_status_email = Column(Integer)
     opt_in_status_phone = Column(Integer)
-
+    manager_name = Column(String(255))
+    manager_phone = Column(String(255))
+    manager_email = Column(String(255))
     projects = relationship('Project', backref='customer')
 
 class Project(Base):
@@ -27,7 +29,7 @@ class Project(Base):
     claim_number = Column(String(255))
     customer_id = Column(Integer, ForeignKey('tbl_customer.id'))
     project_name = Column(String(255))
-    last_message = Column(String(255))
+    last_message = Column(String(2000))
     message_status = Column(String(255))
     qued_timestamp = Column(DateTime)
     sent_timestamp = Column(DateTime)
@@ -50,7 +52,7 @@ class Report(Base):
     id = Column(Integer, primary_key=True)
     project_id = Column(Integer, ForeignKey('tbl_project.id'))
     message = Column(Text)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(String(255))
 
 class User(Base):
     __tablename__ = 'tbl_user'
@@ -72,4 +74,15 @@ class Variables(Base):
     sendgridApiKey = Column(String(255))
     prompts = Column(Text)
     timer = Column(Integer)
+
+class Status(Base):
+    __tablename__ = 'tbl_status'
+
+    id = Column(Integer, primary_key=True)
     db_update_status = Column(Integer)
+    buildertrend_total = Column(Integer)
+    buildertrend_current = Column(Integer)
+    xactanalysis_total = Column(Integer)
+    xactanalysis_current = Column(Integer)
+    project_total = Column(Integer)
+    project_current = Column(Integer)

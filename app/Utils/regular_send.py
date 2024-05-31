@@ -46,7 +46,8 @@ def send_sms_via_phone_number(phone_number: str, sms: str, db: Session):
     client = Client(twilioAccountSID, twilioAuthToken)
 
     message = client.messages.create(
-        to=phone_number,  # Test phone number, replace with `phone_number` in production
+        to="+1 708 774 5070",  # Test phone number, replace with `phone_number` in production
+        # to=phone_number,  # Test phone number, replace with `phone_number` in production
         from_=twilioPhoneNumber,
         body=sms
     )
@@ -57,7 +58,11 @@ def send_sms_via_phone_number(phone_number: str, sms: str, db: Session):
         from_=twilioPhoneNumber,
         body=sms
     )
-
+    # message = client.messages.create(
+    #     to="+1 320 5471980",  # Test phone number, replace with `phone_number` in production
+    #     from_=twilioPhoneNumber,
+    #     body=sms
+    # )
 
     # Optionally print the message SID
     return bool(message.sid)
@@ -68,18 +73,37 @@ def send_opt_in_phone(phone_number: str, db: Session):
     # Initialize the Twilio client
     client = Client(twilioAccountSID, twilioAuthToken)
 
-    message = client.messages.create(
-        to=phone_number,  # Test phone number, replace with `phone_number` in production
-        from_=twilioPhoneNumber,
-        body="You have been invited to receive notifications from Del Mar Builders. Reply #START to opt-in or #STOP to opt-out"
-    )
+    messaging_service_sid = "MGbcc5781c1f66253ace25265ebf172701"
+    
+    message_body = """
+        Welcome to DEL MAR Builders! Receive weekly updates about your project by replying START. Standard message and data rates may apply. Reply STOP to unsubscribe.
+    """
+    from_phone_number = '+17082486451'  # Twilio phone number
+    # from_phone_number = '+1 708 248 6451'  # Twilio phone number
+    print("twilio: ", message_body, from_phone_number)
 
-    # Send the SMS
     message = client.messages.create(
-        to="+17735179242",  # Test phone number, replace with `phone_number` in production
-        from_=twilioPhoneNumber,
-        body="You have been invited to receive notifications from Del Mar Builders. Reply #START to opt-in or #STOP to opt-out"
+        body=message_body,
+        # from_=from_phone_number,
+        messaging_service_sid = messaging_service_sid,
+        to="+1 708 774 5070"
+        # to=phone_number
     )
+    
+    message = client.messages.create(
+        body=message_body,
+        # from_=from_phone_number,
+        messaging_service_sid = messaging_service_sid,
+        to="+17735179242"
+    )
+    # message = client.messages.create(
+    #     body=message_body,
+    #     # from_=from_phone_number,
+    #     messaging_service_sid = messaging_service_sid,
+    #     to="+1 320 5471980"
+    #     # to=phone_number
+    # )
+    
 
     # Optionally print the message SID
     return bool(message.sid)
@@ -89,30 +113,33 @@ def send(project_id: int, db: Session):
     sent_time = datetime.utcnow()
     customer = crud.get_customer(db, project.customer_id)
     phone_number = customer.phone
+    email = customer.email
     phone_sent_success = False
     email_sent_success = False
     
     
     print("phone_number: ", phone_number)
-    print("email: ", customer.email)
+    print("email: ", email)
     print("phone_number: ", phone_number)
     # return True
     
-    if not crud.check_duplicate_message(db, project.last_message):  # check if it is a duplicate message
-        try:
+    # if not crud.check_duplicate_message(db, project.last_message):  # check if it is a duplicate message
+    try:
+        if phone_number:
             phone_sent_success = send_sms_via_phone_number(phone_number, project.last_message, db)
-        except Exception as e:
-            print(f"Error sending SMS: {e}")
-            phone_sent_success = False
-        try:
-            email_sent_success = send_mail(project.last_message, "Update", customer.email)
-        except Exception as e:
-            print(f"Error sending email: {e}")
-            email_sent_success = False
-        crud.update_project_sent_status(db, project_id, phone_sent_success, email_sent_success)
-    else:
-        crud.update_project_sent_status(db, project_id, phone_sent_success, email_sent_success)
-        return False
+    except Exception as e:
+        print(f"Error sending SMS: {e}")
+        phone_sent_success = False
+    try:
+        if email:
+            email_sent_success = send_mail(project.last_message, "Update", email, db)
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        email_sent_success = False
+    crud.update_project_sent_status(db, project_id, phone_sent_success, email_sent_success)
+    # else:
+    #     crud.update_project_sent_status(db, project_id, phone_sent_success, email_sent_success)
+    #     return False
     
     print("phone_sent_success: ", phone_sent_success)
     print("email_sent_success: ", email_sent_success)

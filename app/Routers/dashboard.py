@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, File, UploadFile, Request, Form
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, File, UploadFile, Request, Form, Response
 from fastapi.responses import FileResponse
 from twilio.twiml.messaging_response import MessagingResponse
 from sqlalchemy.orm import Session
@@ -7,12 +7,15 @@ from database import SessionLocal
 from app.Utils.chatgpt import get_last_message
 from app.Utils.regular_send import send
 from app.Utils.Auth import get_current_user
-from app.Model.Settings import SettingsModel
-from app.Model.MainTable import MainTableModel
 from app.Utils.regular_update import job, update_notification, update_database
 from app.Utils.regular_send import send_opt_in_phone
 from app.Utils.sendgrid import send_opt_in_email
 import app.Utils.database_handler as crud
+from app.Model.Settings import SettingsModel
+from app.Model.MainTable import MainTableModel
+from app.Model.ScrapingStatusModel import ScrapingStatusModel
+
+
 
 from typing import Annotated
 from datetime import datetime
@@ -37,6 +40,15 @@ def get_db():
 @router.get('/update-db')
 def update_db(source: str, email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
     print("dashboard - source: ", source)
+    status = crud.get_status(db)
+    update_status = {}
+    if source == "BuilderTrend":
+        update_status = ScrapingStatusModel(buildertrend_total=status.buildertrend_total, buildertrend_current=0, xactanalysis_total=status.xactanalysis_total, xactanalysis_current=status.xactanalysis_current).dict()
+    else:
+        update_status = ScrapingStatusModel(buildertrend_total=status.buildertrend_total, buildertrend_current=status.buildertrend_current, xactanalysis_total=status.xactanalysis_total, xactanalysis_current=0).dict()
+    print("**update_status: ", update_status)
+    crud.update_status(db, status.id, **update_status)
+    
     job(source)
     return True
 
@@ -159,8 +171,8 @@ async def get_timer(email: Annotated[str, Depends(get_current_user)], db: Sessio
     return {"success": "true"}
 
 @router.get('/rerun-chatgpt')
-async def rerun_chatgpt_route(email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
-    await update_notification()
+def rerun_chatgpt_route(email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
+    update_notification(db)
     return {"success": "true"}
 
 
@@ -169,7 +181,8 @@ async def rerun_chatgpt_route(email: Annotated[str, Depends(get_current_user)], 
 def set_opt_in_status_email(email: Annotated[str, Depends(get_current_user)], customer_id: int, opt_in_status_email: int, db: Session = Depends(get_db)):
     print("dashboard - customer_id: ", customer_id)
     customer = crud.get_customer(db, customer_id)
-    send_opt_in_email(customer_id, customer.email, db)
+    if opt_in_status_email == 1:
+        send_opt_in_email(customer_id, customer.email, db)
     crud.update_opt_in_status_email(db, customer_id, opt_in_status_email)
     return True
 
@@ -177,15 +190,21 @@ def set_opt_in_status_email(email: Annotated[str, Depends(get_current_user)], cu
 def set_opt_in_status_phone(email: Annotated[str, Depends(get_current_user)], customer_id: int, opt_in_status_phone: int, db: Session = Depends(get_db)):
     print("dashboard - customer_id: ", customer_id)
     customer = crud.get_customer(db, customer_id)
-    send_opt_in_phone(customer.phone, db)
+    if opt_in_status_phone == 1:
+        send_opt_in_phone(customer.phone, db)
     crud.update_opt_in_status_phone(db, customer_id, opt_in_status_phone)
     return True
 
 @router.get('/confirm-opt-in-status')
 def set_opt_in_status(customer_id: int, response: str, db: Session = Depends(get_db)):
-    print("dashboard - customer_id: ", customer_id)
+    print("dashboard - confirm-opt-in-status - customer_id: ", customer_id)
     
     crud.update_opt_in_status_email(db, customer_id, 2 if response == "accept" else 3)
+    
+    data = crud.get_status(db)
+    if data is not None:
+        crud.set_db_update_status(db, data.id, 1)
+    
     if response == "accept":
         return "Sent Successfully! Congulatulations!"
     else:
@@ -202,23 +221,34 @@ async def handle_sms(Body: str = Form(...), From: str = Form(...), db: Session =
     response = MessagingResponse()
     
     # Check if the incoming message is a recognized keyword
-    if incoming_msg == "#STOP":
+    if incoming_msg == "#STOP" or incoming_msg == "STOP":
+        print("dashboard - incoming_msg:", incoming_msg)
         customer = crud.find_customer_with_phone(db, From)
         if customer is not None:
             crud.update_opt_in_status_phone(db, customer.id, 3) # Set as Opt Out
         response.message("You have been unsubscribed from messages. Reply with #START to subscribe again.")
-    elif incoming_msg == "#START":
+        
+    elif incoming_msg == "#START" or incoming_msg == "START" :
+        print("dashboard - incoming_msg:", incoming_msg)
         # Update your database to mark this number as opted-in
         customer = crud.find_customer_with_phone(db, From)
+        print("dashboard - From:", From)
+        print("dashboard - customer:", customer.id)
         if customer is not None:
             crud.update_opt_in_status_phone(db, customer.id, 2) # Set as Opt In
         response.message("You have been subscribed to messages.")
     else:
+        print("dashboard - incoming_msg:", incoming_msg)
         # The message is not a recognized keyword
         response.message("Sorry, we did not understand your message. Reply with #STOP to unsubscribe or #START to subscribe.")
 
+    data = crud.get_status(db)
+    if data is not None:
+        crud.set_db_update_status(db, data.id, 1)
+
     # Return the response to Twilio
-    return response.to_xml()
+    print("dashboard - response: ", response)
+    return Response(content=str(response), media_type="application/xml")
 
 
 @router.get('/variables')
@@ -230,7 +260,7 @@ def get_variables(email: Annotated[str, Depends(get_current_user)], db: Session 
 @router.get('/check-database-update')
 def get_variables(email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
     
-    data = crud.get_variables(db)
+    data = crud.get_status(db)
     if data is None:
         return False
     
@@ -242,3 +272,19 @@ def get_variables(email: Annotated[str, Depends(get_current_user)], db: Session 
         return True
     else:
         return False
+
+
+@router.post("/update-scraping-status")
+async def update_scraping_status(scraping_status: ScrapingStatusModel, db: Session = Depends(get_db)):
+    status = crud.get_status(db)
+    print("scraping_status: ", scraping_status)
+    if status is not None:
+        update_status = {k: (getattr(status, k) if v == -1 else v) for k, v in scraping_status.dict().items()}
+        crud.update_status(db, status.id, **update_status)
+    return {"success": "true"}
+
+
+@router.get("/check-scraping-status")
+def check_scraping_status(db: Session = Depends(get_db)):
+    status = crud.get_status(db)
+    return status

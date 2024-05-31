@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session
-from app.Model.DatabaseModel import Customer, Project, MessageHistory, Report, User, Variables
+from sqlalchemy import func
+
+from app.Model.DatabaseModel import Customer, Project, MessageHistory, Report, User, Variables, Status
 from datetime import datetime
 
 
@@ -16,7 +18,8 @@ def get_main_table(db: Session):
         Project.qued_timestamp,
         Project.sent_timestamp,
         Customer.sending_method,
-        Customer.opt_in_status,
+        Customer.opt_in_status_email,
+        Customer.opt_in_status_phone,
         Customer.email,
         Customer.phone,
         Project.phone_sent_success,
@@ -30,11 +33,16 @@ def get_customer(db: Session, customer_id: int):
 def find_customer_with_phone(db: Session, phone: str):
     return db.query(Customer).filter(Customer.phone == phone).first()
 
-def insert_customer(db: Session, first_name: str, last_name: str, email: str, phone: str, address: str):
+def insert_customer(db: Session,  manager_name: str, manager_phone: str, manager_email: str, first_name: str, last_name: str, email: str, phone: str, address: str):
     # Check if customer already exists
     existing_customer = db.query(Customer).filter(
-        Customer.first_name == first_name,
-        Customer.last_name == last_name
+        func.lower(Customer.first_name) == func.lower(first_name),
+        func.lower(Customer.last_name) == func.lower(last_name)
+    ).first()
+    
+    existing_customer_1 = db.query(Customer).filter(
+        func.lower(Customer.first_name) == func.lower(last_name),
+        func.lower(Customer.last_name) == func.lower(first_name)
     ).first()
 
     if existing_customer:
@@ -42,8 +50,26 @@ def insert_customer(db: Session, first_name: str, last_name: str, email: str, ph
         existing_customer.email = email
         existing_customer.phone = phone
         existing_customer.address = address
+        existing_customer.manager_name = manager_name
+        existing_customer.manager_phone = manager_phone
+        existing_customer.manager_email = manager_email
+        
+        db.add(existing_customer)
         db.commit()
+        db.refresh(existing_customer)
         return existing_customer
+    elif existing_customer_1:
+        # If customer exists, update their information and return their ID
+        existing_customer_1.email = email
+        existing_customer_1.phone = phone
+        existing_customer_1.address = address
+        existing_customer.manager_name = manager_name
+        existing_customer.manager_phone = manager_phone
+        existing_customer.manager_email = manager_email
+        db.add(existing_customer_1)
+        db.commit()
+        db.refresh(existing_customer_1)
+        return existing_customer_1
     else:
         # If customer does not exist, insert them and return their ID
         new_customer = Customer(
@@ -104,7 +130,6 @@ def insert_project(db: Session, claim_number: str, customer_id: int, project_nam
     existing_project = db.query(Project).filter_by(
         claim_number=claim_number,
         customer_id=customer_id,
-        project_name=project_name
     ).first()
 
     if existing_project is None:
@@ -153,7 +178,7 @@ def delete_message_history(db: Session, message_history_id: int):
 
 # Report CRUD Operations
 
-def insert_report(db: Session, project_id: int, message: str = "", timestamp: str = None):
+def insert_report(db: Session, project_id: int, message: str = "", timestamp: str = ""):
     # If no timestamp is provided, use the current UTC time
     if timestamp is None:
         timestamp = ""
@@ -209,12 +234,13 @@ def delete_user(db: Session, user_id: int):
 def get_variables(db: Session):
     return db.query(Variables).first()
 
-def create_variables(db: Session, openAIKey: str, twilioPhoneNumber: str, twilioAccountSID: str, twilioAuthToken: str, sendgridEmail: str, sendgridApiKey: str, prompts: str, timer: int):
-    new_variables = Variables(openAIKey=openAIKey, twilioPhoneNumber=twilioPhoneNumber, twilioAccountSID=twilioAccountSID, twilioAuthToken=twilioAuthToken, sendgridEmail=sendgridEmail, sendgridApiKey=sendgridApiKey, prompts=prompts, timer=timer)
+def create_variables(db: Session):
+    new_variables = Variables(openAIKey="", twilioPhoneNumber="", twilioAccountSID="", twilioAuthToken="", sendgridEmail="", sendgridApiKey="", prompts="", timer=0)
     db.add(new_variables)
     db.commit()
     db.refresh(new_variables)
-    return new_variables
+    return new_variables    
+
 
 def update_variables(db: Session, variables_id: int, **kwargs):
     db.query(Variables).filter(Variables.id == variables_id).update(kwargs)
@@ -290,8 +316,32 @@ def update_project_sent_status(db: Session, project_id: int, phone_sent_success:
     })
     db.commit()
 
-def set_db_update_status(db: Session, variables_id: int, db_update_status: int):
-    db.query(Variables).filter(Variables.id == variables_id).update({
-        Variables.db_update_status : db_update_status
+def set_db_update_status(db: Session, status_id: int, db_update_status: int):
+    db.query(Status).filter(Status.id == status_id).update({
+        Status.db_update_status : db_update_status
     })
     db.commit()
+    
+# Status CRUD Operations
+def get_status(db: Session):
+    return db.query(Status).first()
+
+def update_status(db: Session, status_id, **kwargs):
+    db.query(Status).filter(Status.id == status_id).update(kwargs)
+    db.commit()
+    
+def update_rerun_status(db: Session, status_id, project_total, project_current):
+    db.query(Status).filter(Status.id == status_id).update({
+        Status.project_total: project_total,
+        Status.project_current: project_current
+    })
+    db.commit()
+    
+
+def create_status(db: Session):
+    new_status = Status(db_update_status=0, buildertrend_total=0, buildertrend_current=0, xactanalysis_total=0, xactanalysis_current=0, project_total=0, project_current=0)
+    db.add(new_status)
+    db.commit()
+    db.refresh(new_status)
+    return new_status    
+

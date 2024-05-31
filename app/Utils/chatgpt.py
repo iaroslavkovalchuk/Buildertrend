@@ -44,7 +44,7 @@ def get_api_key_and_prompts(db: Session):
     return api_key, main_prompts
 
 # Function to get the last message using OpenAI
-def get_last_message(db: Session, report_list, customer_name: str):
+def get_last_message(db: Session, manager_name, manager_phone, manager_email, report_list, customer_name: str):
     api_key, main_prompts = get_api_key_and_prompts(db)
     print("chatgpt - main_prompts: ", api_key, main_prompts)
     client = OpenAI(api_key=api_key)
@@ -53,13 +53,21 @@ def get_last_message(db: Session, report_list, customer_name: str):
         return ""
 
     report_history = '\n'.join(report.message for report in report_list)  # 2 means message column
-
-      
     print("chatgpt - main_prompts: ", main_prompts)
+
+    if not manager_name:
+        manager_name = "Angela Bermudez"
+        manager_phone = "+1 312 443 2120"
+        manager_email = "angelab@getdelmar.com"
     
     instruction = f"""
         I need a 300 character work report for our customer, {customer_name}, summarizing the latest update in the project timeline.
-        This is the historical report on the progress of this project.
+        And below is the project manager contact information for this project.
+            Project manager name: {manager_name}
+            Project manager phone: {manager_phone}
+            Project manager email: {manager_email}
+        
+        This is the historical report on the progress of this project. Before you analyze this report history, please sort them by time so that you can understand the progress of project correctly.
         {report_history}
         -----------------------------
         {main_prompts}

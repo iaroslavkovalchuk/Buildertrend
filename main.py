@@ -5,6 +5,8 @@ from app.Utils.regular_update import job
 from app.Utils.regular_send import send_sms_via_phone_number
 from app.Routers import dashboard
 from app.Routers import auth
+import app.Utils.database_handler as crud
+from database import SessionLocal
 
 import uvicorn
 import schedule
@@ -80,4 +82,14 @@ async def health_checker():
     return {"status": "success"}
 
 if __name__ == "__main__":
+    db = SessionLocal()
+    
+    variables = crud.get_variables(db)
+    if variables is None:
+        crud.create_variables(db)
+        
+    status = crud.get_status(db)
+    if status is None:
+        crud.create_status(db)
+    
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
