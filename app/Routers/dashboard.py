@@ -1,8 +1,10 @@
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, File, UploadFile, Request, Form, Response
+from fastapi import FastAPI,BackgroundTasks, APIRouter, Depends, HTTPException, status, File, UploadFile, Request, Form, Response
 from fastapi.responses import FileResponse
 from twilio.twiml.messaging_response import MessagingResponse
 from sqlalchemy.orm import Session
-from database import SessionLocal
+from database import AsyncSessionLocal
+import uuid
+
 
 from app.Utils.chatgpt import get_last_message
 from app.Utils.regular_send import send
@@ -14,9 +16,10 @@ import app.Utils.database_handler as crud
 from app.Model.Settings import SettingsModel
 from app.Model.MainTable import MainTableModel
 from app.Model.ScrapingStatusModel import ScrapingStatusModel
+from app.Model.LastMessageModel import LastMessageModel
+from pydantic import EmailStr
 
-
-
+from copy import deepcopy
 from typing import Annotated
 from datetime import datetime
 import os
@@ -30,12 +33,9 @@ load_dotenv()
 router = APIRouter()
 
 # Dependency to get the database session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session
 
 @router.get('/update-db')
 def update_db(source: str, email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
@@ -53,18 +53,38 @@ def update_db(source: str, email: Annotated[str, Depends(get_current_user)], db:
     return True
 
 @router.post('/get-scraped-result')
-async def scraped_result(request: Request, db: Session = Depends(get_db)):
+async def scraped_result(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     data = await request.json()
     print("dashboard - data: ", data)
-    update_database(data)
+    background_tasks.add_task(update_database, data)
     # Process the raw JSON data here
     return {"received": len(data), "message": "Raw data processed successfully"}
 
 @router.get('/table')
 async def get_table(email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
     main_table_data = crud.get_main_table(db)  # Replace with appropriate CRUD operation
-    result = [MainTableModel(**item._asdict()) for item in main_table_data]
-
+    result = []
+    for item in main_table_data:
+        temp_result = []
+        new_item = item._asdict()
+        if new_item['message_status'] != 3:
+            temp_result.append(new_item)
+        
+        history_messages = crud.get_message_history_by_project_id_as_list(db, item.project_id)
+        if history_messages:
+            print("new_item1: ", new_item)
+        for history_message in history_messages:
+            tmp_item = deepcopy(new_item)
+            tmp_item['last_message'] = history_message.message
+            tmp_item['message_status'] = 3
+            tmp_item['sent_timestamp'] = history_message.sent_time
+            tmp_item['project_id'] = uuid.uuid4().int
+            temp_result.append(tmp_item)
+            print("tmp_item: ", tmp_item)
+        temp_result.reverse()
+        print("len: ", len(temp_result))
+        result.extend(temp_result)
+            
     return result
 
 @router.get('/qued')
@@ -83,7 +103,7 @@ async def cancel_qued(email: Annotated[str, Depends(get_current_user)], project_
 async def set_sent(email: Annotated[str, Depends(get_current_user)], project_id: int, db: Session = Depends(get_db)):
     sent_time = datetime.utcnow()
     print("sent_time", sent_time)
-    crud.update_project(db, project_id, message_status=3, sent_timestamp=sent_time)
+    crud.update_project(db, project_id, message_status=3)
     ret = send(project_id, db)  # Replace with appropriate send operation
     if ret:
         return {"success": "true"}
@@ -95,9 +115,10 @@ async def change_status(email: Annotated[str, Depends(get_current_user)], custom
     crud.update_sending_method(db, customer_id, method=method)
     return {"success": "true"}
 
-@router.get('/update-last-message')
-async def update_last_message(email: Annotated[str, Depends(get_current_user)], project_id: int, message: str, db: Session = Depends(get_db)):
-    crud.update_project(db, project_id, last_message=message)
+@router.post('/update-last-message')
+async def update_last_message(email: Annotated[str, Depends(get_current_user)], last_message: LastMessageModel, db: Session = Depends(get_db)):
+    print("message: ", last_message.message)
+    crud.update_project(db, last_message.project_id, last_message=last_message.message)
     return {"success": "true"}
 
 @router.get('/download-project-message')
@@ -171,8 +192,8 @@ async def get_timer(email: Annotated[str, Depends(get_current_user)], db: Sessio
     return {"success": "true"}
 
 @router.get('/rerun-chatgpt')
-def rerun_chatgpt_route(email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
-    update_notification(db)
+async def rerun_chatgpt_route(background_tasks: BackgroundTasks, email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
+    background_tasks.add_task(update_notification, db)
     return {"success": "true"}
 
 
@@ -258,7 +279,7 @@ def get_variables(email: Annotated[str, Depends(get_current_user)], db: Session 
     return data
 
 @router.get('/check-database-update')
-def get_variables(email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
+async def get_variables(email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
     
     data = crud.get_status(db)
     if data is None:
@@ -285,6 +306,6 @@ async def update_scraping_status(scraping_status: ScrapingStatusModel, db: Sessi
 
 
 @router.get("/check-scraping-status")
-def check_scraping_status(db: Session = Depends(get_db)):
+async def check_scraping_status(db: Session = Depends(get_db)):
     status = crud.get_status(db)
     return status

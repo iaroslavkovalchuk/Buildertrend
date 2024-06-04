@@ -1,9 +1,13 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from app.Model.DatabaseModel import Base
 import os
+import asyncio
 from dotenv import load_dotenv
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import async_scoped_session
+from fastapi import FastAPI, Depends, BackgroundTasks, APIRouter
+from app.Model.DatabaseModel import Base
 
+# Load environment variables
 load_dotenv()
 
 host = os.getenv("MYSQL_HOST")
@@ -11,9 +15,14 @@ user = os.getenv("MYSQL_USER")
 password = os.getenv("MYSQL_PASSWORD")
 database = os.getenv("MYSQL_DATABASE")
 
-DATABASE_URI = f"mysql+pymysql://{user}:{password}@{host}/{database}"
+DATABASE_URI = f"mysql+aiomysql://{user}:{password}@{host}/{database}"
 
-engine = create_engine(DATABASE_URI, echo=True, pool_size=10)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Create asynchronous engine and session
+engine = create_async_engine(DATABASE_URI, echo=True, pool_size=30)
+AsyncSessionLocal = sessionmaker(
+    engine, expire_on_commit=False, class_=AsyncSession
+)
 
-Base.metadata.create_all(bind=engine)
+async def create_tables():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)

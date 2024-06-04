@@ -21,7 +21,7 @@ class MainTableModel(BaseModel):
     phone: Optional[str] = None
     phone_sent_success: Optional[int] = None
     email_sent_success: Optional[int] = None
-
+    
 class ProjectMessageModel(BaseModel):
     history_id: Optional[int]
     message: Optional[str]

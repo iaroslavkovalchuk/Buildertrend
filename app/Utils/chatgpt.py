@@ -1,19 +1,16 @@
 from sqlalchemy.orm import Session
-from database import SessionLocal
+from database import AsyncSessionLocal
 import app.Utils.database_handler as crud
 import os
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 load_dotenv()
 
 # Dependency to get the database session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session
 
 openai_api_key = os.getenv('OPENAI_API_KEY')
 
@@ -44,10 +41,10 @@ def get_api_key_and_prompts(db: Session):
     return api_key, main_prompts
 
 # Function to get the last message using OpenAI
-def get_last_message(db: Session, manager_name, manager_phone, manager_email, report_list, customer_name: str):
+async def get_last_message(db: Session, manager_name, manager_phone, manager_email, report_list, customer_name: str):
     api_key, main_prompts = get_api_key_and_prompts(db)
     print("chatgpt - main_prompts: ", api_key, main_prompts)
-    client = OpenAI(api_key=api_key)
+    client = AsyncOpenAI(api_key=api_key)
     # return
     if not report_list:
         return ""
@@ -68,12 +65,16 @@ def get_last_message(db: Session, manager_name, manager_phone, manager_email, re
             Project manager email: {manager_email}
         
         This is the historical report on the progress of this project. Before you analyze this report history, please sort them by time so that you can understand the progress of project correctly.
+        In easy word, please sort them in cronological order before you refer to below history.
         {report_history}
         -----------------------------
         {main_prompts}
+        -----------------
+        Your output should be markdown context so that it can displayed on browser attrative.
+        It would be displayed with textarea tag on browser.
     """
     
-    response = client.chat.completions.create(
+    response = await client.chat.completions.create(
         model='gpt-4-0125-preview',
         max_tokens=2000,
         messages=[

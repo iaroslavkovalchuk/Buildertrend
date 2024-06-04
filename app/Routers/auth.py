@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Form, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from database import SessionLocal
+from database import AsyncSessionLocal
 from app.Utils.Auth import authenticate_user, create_access_token, get_password_hash
 from app.Utils.sendgrid import send_mail
 import secrets
@@ -15,12 +15,9 @@ load_dotenv()
 router = APIRouter()
 
 # Dependency to get the database session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session
 
 @router.post("/signin")
 def signin_for_access_token(email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):

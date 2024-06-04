@@ -30,7 +30,7 @@ class Project(Base):
     customer_id = Column(Integer, ForeignKey('tbl_customer.id'))
     project_name = Column(String(255))
     last_message = Column(String(2000))
-    message_status = Column(String(255))
+    message_status = Column(Integer)
     qued_timestamp = Column(DateTime)
     sent_timestamp = Column(DateTime)
     phone_sent_success = Column(Boolean)

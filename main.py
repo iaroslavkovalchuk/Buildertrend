@@ -6,56 +6,18 @@ from app.Utils.regular_send import send_sms_via_phone_number
 from app.Routers import dashboard
 from app.Routers import auth
 import app.Utils.database_handler as crud
-from database import SessionLocal
-
+from database import AsyncSessionLocal, create_tables
 import uvicorn
 import schedule
 import time
-import threading
+import asyncio
+
 import requests
 import logging
 import logging.config
-
+from datetime import datetime, timedelta
 app = FastAPI()
 
-# Define your logging configuration
-logging_config = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "default": {
-            "format": "%(levelname)s: %(name)s: %(message)s",
-        },
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "default",
-        },
-    },
-    "loggers": {
-        "uvicorn": {
-            "handlers": ["console"],
-            "level": "INFO",
-        },
-        "sqlalchemy.engine": {
-            "handlers": ["console"],
-            "level": "WARNING",
-            "propagate": False,
-        },
-        "sqlalchemy.pool": {
-            "handlers": ["console"],
-            "level": "WARNING",
-            "propagate": False,
-        },
-    },
-}
-
-# Apply logging configuration
-logging.config.dictConfig(logging_config)
-
-
-origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -82,7 +44,11 @@ async def health_checker():
     return {"status": "success"}
 
 if __name__ == "__main__":
-    db = SessionLocal()
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    asyncio.run(create_tables())
+
+    
+    db = AsyncSessionLocal()
     
     variables = crud.get_variables(db)
     if variables is None:
@@ -92,4 +58,18 @@ if __name__ == "__main__":
     if status is None:
         crud.create_status(db)
     
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    schedule.every(3).hours.do(job, source="BuilderTrend")
+
+    # Calculate the time for the second job to start 1.5 hours after the first job
+    first_job_time = datetime.now()
+    second_job_start_time = (first_job_time + timedelta(hours=1.5)).strftime("%H:%M")
+
+    # Schedule the second job function to run every 3 hours starting 1.5 hours from now
+    schedule.every(3).hours.at(second_job_start_time).do(job, source="Xactanalysis")
+
+    # Run the scheduler in an infinite loop
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
+    # uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

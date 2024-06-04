@@ -23,15 +23,17 @@ def get_main_table(db: Session):
         Customer.email,
         Customer.phone,
         Project.phone_sent_success,
-        Project.email_sent_success
+        Project.email_sent_success,
     ).outerjoin(Project, Customer.id == Project.customer_id).all()
+
 
 # Customer CRUD Operations
 def get_customer(db: Session, customer_id: int):
     return db.query(Customer).filter(Customer.id == customer_id).first()
 
 def find_customer_with_phone(db: Session, phone: str):
-    return db.query(Customer).filter(Customer.phone == phone).first()
+    phone = phone.replace(" ", "")
+    return db.query(Customer).filter(func.replace(Customer.phone, ' ', '') == phone).first()
 
 def insert_customer(db: Session,  manager_name: str, manager_phone: str, manager_email: str, first_name: str, last_name: str, email: str, phone: str, address: str):
     # Check if customer already exists
@@ -263,6 +265,12 @@ def insert_message_history(db: Session, message: str, project_id: int):
     db.commit()
     db.refresh(new_message_history)  # Refresh to get the new ID if needed
     return new_message_history
+
+
+def get_message_history_by_project_id_as_list(db: Session, project_id: int):
+    results = db.query(MessageHistory).filter(MessageHistory.project_id == project_id).all()
+    # Convert the instances to dictionaries, excluding any non-column attributes like '_sa_instance_state'
+    return results
 
 def get_message_history_by_project_id(db: Session, project_id: int):
     messages = db.query(MessageHistory).filter(MessageHistory.project_id == project_id).all()

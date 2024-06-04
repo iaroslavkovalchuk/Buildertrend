@@ -1,6 +1,6 @@
 from twilio.rest import Client
 from sqlalchemy.orm import Session
-from database import SessionLocal
+from database import AsyncSessionLocal
 from app.Utils.sendgrid import send_mail
 from dotenv import load_dotenv
 from datetime import datetime
@@ -11,12 +11,10 @@ import os
 load_dotenv()
 
 # Dependency to get the database session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session
+        
         
 twilioPhoneNumber = os.getenv("TWILIO_PHONE_NUMBER")
 twilioAccountSID = os.getenv("TWILIO_ACCOUNT_SID")
@@ -96,13 +94,13 @@ def send_opt_in_phone(phone_number: str, db: Session):
         messaging_service_sid = messaging_service_sid,
         to="+17735179242"
     )
-    # message = client.messages.create(
-    #     body=message_body,
-    #     # from_=from_phone_number,
-    #     messaging_service_sid = messaging_service_sid,
-    #     to="+1 320 5471980"
-    #     # to=phone_number
-    # )
+    message = client.messages.create(
+        body=message_body,
+        # from_=from_phone_number,
+        messaging_service_sid = messaging_service_sid,
+        to=phone_number
+        # to=phone_number
+    )
     
 
     # Optionally print the message SID
