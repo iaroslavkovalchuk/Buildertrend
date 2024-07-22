@@ -102,7 +102,6 @@ async def send_opt_in_email(customer_id: int, to_email: str, db: Session):
             </html>
         """
         api_key, from_mail = await get_api_key_and_from_mail(db)
-        # api_key="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"
         # from_mail="jack.bear000@gmail.com"
         sendgrid_client = SendGridAPIClient(api_key=api_key)
 
@@ -185,7 +184,6 @@ async def send_approve_email(customer_email: str, db: Session):
         """
         api_key, from_mail = await get_api_key_and_from_mail(db)
         
-        # api_key="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"
         # from_mail="jack.bear000@gmail.com"
         sendgrid_client = SendGridAPIClient(api_key=api_key)
 
