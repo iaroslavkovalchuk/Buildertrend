@@ -20,6 +20,7 @@ class Customer(Base):
     manager_name = Column(String(255))
     manager_phone = Column(String(255))
     manager_email = Column(String(255))
+    is_deleted=Column(Integer)
     projects = relationship('Project', backref='customer')
 
 class Project(Base):
@@ -29,25 +30,23 @@ class Project(Base):
     claim_number = Column(String(255))
     customer_id = Column(Integer, ForeignKey('tbl_customer.id'))
     project_name = Column(String(255))
-    last_message = Column(String(2000))
+    last_message = Column(Text)
     message_status = Column(Integer)
     qued_timestamp = Column(DateTime)
     sent_timestamp = Column(DateTime)
     phone_sent_success = Column(Boolean)
     email_sent_success = Column(Boolean)
 
-    message_history = relationship('MessageHistory', backref='project')
-
 class MessageHistory(Base):
     __tablename__ = 'tbl_message_history'
 
     id = Column(Integer, primary_key=True)
     message = Column(Text)
-    project_id = Column(Integer, ForeignKey('tbl_project.id'))
+    project_id = Column(Integer)
     sent_time = Column(DateTime, default=datetime.utcnow)
 
 class Report(Base):
-    __tablename__ = 'tbl_report'
+    __tablename__ = 'tbl_report'    
 
     id = Column(Integer, primary_key=True)
     project_id = Column(Integer, ForeignKey('tbl_project.id'))
@@ -61,6 +60,7 @@ class User(Base):
     username = Column(String(255), unique=True)
     password = Column(String(255))
     forgot_password_token = Column(String(255))
+    approved = Column(Integer)
 
 class Variables(Base):
     __tablename__ = 'tbl_variables'

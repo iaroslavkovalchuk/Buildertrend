@@ -13,7 +13,16 @@ class AuthModel(BaseModel):
     xact_user: str
     xact_pass: str
 
-def job(source: str):
+import asyncio
+import aiohttp
+
+async def send_notification(json_data):
+    async with aiohttp.ClientSession() as session:
+        async with session.post('http://173.0.155.75/api/v1/notification', json=json_data) as response:
+            # Not waiting for the response
+            pass
+
+async def job(source: str):
     print("Scraping started!")
 
     # Create an instance of AuthModel with your credentials
@@ -27,7 +36,9 @@ def job(source: str):
     
     json_data = auth_data.dict()
     print(source)
-    response = requests.post('https://api.cultuurtickets.nl/buildertrend/api/v1/notification', json=json_data)
+    # response = requests.post('https://api.cultuurtickets.nl/buildertrend/api/v1/notification', json=json_data)
+    task = asyncio.create_task(send_notification(json_data))
+    await task
     return
 
 
@@ -46,38 +57,46 @@ def process_phone_number(phone):
         
 
 async def update_notification(db: Session):
-    project_list = crud.get_all_projects(db)
+    
+    # reports_list = await crud.get_reports_by_project_id(db, 80)
+    # tmp = ""
+    # for report in reports_list:
+    #     tmp += report.message + '\n'
+    # print("message for Mike Hudek: ", tmp)
+    
+    
+    project_list = await crud.get_all_projects(db)
     print('regular_update - project_list: ', project_list)
     count = 0
-    status = crud.get_status(db)
+    status = await crud.get_status(db)
     if status is not None:
-        crud.update_rerun_status(db, status.id, len(project_list), count)
+        await crud.update_rerun_status(db, status.id, len(project_list), count)
     for project in project_list:
         try:
             count += 1
             print("regular_update - customer_id: ", project.customer_id)
             print("regular_update - project_id: ", project.id)
-            customer = crud.get_customer(db, project.customer_id)
-            reports_list = crud.get_reports_by_project_id(db, project.id)
+            customer = await crud.get_customer(db, project.customer_id)
+            reports_list = await crud.get_reports_by_project_id(db, project.id)
             # Get personalized message based on reports
             last_message = await get_last_message(db, customer.manager_name, customer.manager_phone, customer.manager_email, reports_list, customer.first_name + ' ' + customer.last_name)
-            crud.update_project(db, project.id, last_message=last_message)
+            await crud.update_project(db, project.id, last_message=last_message)
             if status is not None:
-                crud.update_rerun_status(db, status.id, len(project_list), count)
+                await crud.update_rerun_status(db, status.id, len(project_list), count)
         except Exception as e:
             print(e)
 
     if status is not None:
-        crud.set_db_update_status(db, status.id, 1)
+        await crud.set_db_update_status(db, status.id, 1)
 
-def update_database(data):    
+async def update_database(data):    
     # Start a new SQLAlchemy session
     db = AsyncSessionLocal()
-    status = crud.get_status(db)
+    status = await crud.get_status(db)
     project_total = len(data)
     project_current = 0
     if status is not None:
-        crud.update_rerun_status(db, status.id, project_total, project_current)
+        await crud.update_rerun_status(db, status.id, project_total, project_current)
     
     for report in data:
         project_current += 1
@@ -98,17 +117,17 @@ def update_database(data):
             manager_email = report['manager_email']
             
             # Insert the customer into the database and get the customer_id
-            customer = crud.insert_customer(db,  manager_name, manager_phone, manager_email, first_name, last_name, email, phone, address)
+            customer = await crud.insert_customer(db,  manager_name, manager_phone, manager_email, first_name, last_name, email, phone, address)
                 
             send_method = customer.sending_method
             print("regular_update - send_method: ", send_method)
             print("regular_update - customer_id: ", customer.id)
             
             # Insert the project into the database and get the project_id
-            project = crud.insert_project(db, claim_number, customer.id, project_name)
+            project = await crud.insert_project(db, claim_number, customer.id, project_name)
             print("project_id: ", project.id)
             
-            crud.update_project(db, project.id, message_status=send_method, qued_timestamp=datetime.utcnow())
+            await crud.update_project(db, project.id, message_status=send_method, qued_timestamp=datetime.utcnow())
             
             flag = 0
             # Insert each report into the database
@@ -118,7 +137,7 @@ def update_database(data):
                 print('++++++++++++++++++++++++++++++++++++++')
                 flag = 1
                 try:
-                    crud.insert_report(db, project.id, message['title'] + '\n' + message['note'] + '\n' + message['date'], message['date'])
+                    await crud.insert_report(db, project.id, message['title'] + '\n' + message['note'] + '\n' + message['date'], message['date'])
                 except Exception as e:
                     print("------------------------------------------")
                     print(project.id, "--\n", message['title'] + message['note'])
@@ -126,29 +145,32 @@ def update_database(data):
                     print(e)
                     print("------------------------------------------")
             print('regular_update - flag', flag)
-            # if flag == 1:
-            #     # Get all reports in this claim
-            #     try:
-            #         reports_list = crud.get_reports_by_project_id(db, project.id)
-            #         # Get personalized message based on reports
-            #         print("reposts_list: ", reports_list)
-            #         last_message = get_last_message(db, manager_name, manager_phone, manager_email, reports_list, first_name + ' ' + last_name)
-            #         print('regular_update - last_message: ', last_message)
-            #         # Save message in this claim
-            #         crud.update_project(db, project.id, last_message=last_message)
+            if flag == 1:
+                # Get all reports in this claim
+                try:
+                    reports_list = await crud.get_reports_by_project_id(db, project.id)
+                    # Get personalized message based on reports
+                    print("reposts_list: ", reports_list)
+                    last_message = await get_last_message(db, manager_name, manager_phone, manager_email, reports_list, first_name + ' ' + last_name)
+                    print('regular_update - last_message: ', last_message)
+                    # Save message in this claim
+                    await crud.update_project(db, project.id, last_message=last_message)
                     
-            #     except Exception as e:
-            #         print('++++++++++++++++++++++++++++++++++++++')
-            #         print(project.id)
-            #         print(e)
-            #         print('+++++++++++++++++++++++++++++++++++++++')
+                except Exception as e:
+                    print('++++++++++++++++++++++++++++++++++++++')
+                    print(project.id)
+                    print(e)
+                    print('+++++++++++++++++++++++++++++++++++++++')
         except Exception as e:
             print(e)
         if status is not None:
-            crud.update_rerun_status(db, status.id, project_total, project_current)
+            await crud.update_rerun_status(db, status.id, project_total, project_current)
+    if status is not None:
+        project_list = await crud.get_all_projects(db)
+        await crud.update_rerun_status(db, status.id, len(project_list), len(project_list))
     print("DB updated!")
     
-    variables = crud.get_variables(db)
+    variables = await crud.get_variables(db)
     if variables is not None:
-        crud.set_db_update_status(db, variables.id, 1)
+        await crud.set_db_update_status(db, variables.id, 1)
     # db.close()

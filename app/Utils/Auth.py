@@ -29,8 +29,8 @@ def verify_password(plain_password, hashed_password):
 def get_password_hash(password):
     return pwd_context.hash(password)
 
-def authenticate_user(db: Session, email: str, password: str):
-    user = crud.get_user_by_email(db, email)  # This function should be defined in your crud.py
+async def authenticate_user(db: Session, email: str, password: str):
+    user = await crud.get_user_by_email(db, email)  # This function should be defined in your crud.py
     # print("authenticater_user: ", user.password)
     if not user:
         return False
@@ -59,7 +59,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Se
     except JWTError:
         raise credentials_exception
     
-    user = crud.get_user_by_email(db, email)  # This function should be defined in your crud.py
+    user = await crud.get_user_by_email(db, email)  # This function should be defined in your crud.py
     if user is None:
         raise credentials_exception
     return user

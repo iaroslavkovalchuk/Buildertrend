@@ -4,7 +4,7 @@ import app.Utils.database_handler as crud
 import os
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
-
+from datetime import datetime
 load_dotenv()
 
 # Dependency to get the database session
@@ -13,7 +13,6 @@ async def get_db():
         yield session
 
 openai_api_key = os.getenv('OPENAI_API_KEY')
-
 standard_prompts = """
     Focus on:
     Introduction acknowledging our role as their contractor.
@@ -28,8 +27,8 @@ standard_prompts = """
 """
 
 # Function to retrieve API key and prompts from the database
-def get_api_key_and_prompts(db: Session):
-    variables = crud.get_variables(db)
+async def get_api_key_and_prompts(db: Session):
+    variables = await crud.get_variables(db)
     api_key = ''
     main_prompts = ''
     if variables:
@@ -42,14 +41,15 @@ def get_api_key_and_prompts(db: Session):
 
 # Function to get the last message using OpenAI
 async def get_last_message(db: Session, manager_name, manager_phone, manager_email, report_list, customer_name: str):
-    api_key, main_prompts = get_api_key_and_prompts(db)
+    api_key, main_prompts = await get_api_key_and_prompts(db)
     print("chatgpt - main_prompts: ", api_key, main_prompts)
     client = AsyncOpenAI(api_key=api_key)
-    # return
+    
     if not report_list:
         return ""
 
     report_history = '\n'.join(report.message for report in report_list)  # 2 means message column
+
     print("chatgpt - main_prompts: ", main_prompts)
 
     if not manager_name:
@@ -58,20 +58,18 @@ async def get_last_message(db: Session, manager_name, manager_phone, manager_ema
         manager_email = "angelab@getdelmar.com"
     
     instruction = f"""
-        I need a 300 character work report for our customer, {customer_name}, summarizing the latest update in the project timeline.
+        Now is {datetime.now()}
+        I need a work report for our customer, {customer_name}, summarizing the latest update in the project timeline.
         And below is the project manager contact information for this project.
             Project manager name: {manager_name}
             Project manager phone: {manager_phone}
             Project manager email: {manager_email}
         
         This is the historical report on the progress of this project. Before you analyze this report history, please sort them by time so that you can understand the progress of project correctly.
-        In easy word, please sort them in cronological order before you refer to below history.
+        In easy word, please sort below history in reverse cronological order before you refer to below history.
         {report_history}
         -----------------------------
         {main_prompts}
-        -----------------
-        Your output should be markdown context so that it can displayed on browser attrative.
-        It would be displayed with textarea tag on browser.
     """
     
     response = await client.chat.completions.create(
@@ -79,7 +77,7 @@ async def get_last_message(db: Session, manager_name, manager_phone, manager_ema
         max_tokens=2000,
         messages=[
             {'role': 'system', 'content': instruction},
-            {'role': 'user', 'content': f"Please provide a personalized report less than 520 characters."}
+            {'role': 'user', 'content': f"Please provide a personalized notification."}
         ],
         temperature=0.7
     )

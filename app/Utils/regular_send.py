@@ -21,8 +21,8 @@ twilioAccountSID = os.getenv("TWILIO_ACCOUNT_SID")
 twilioAuthToken = os.getenv("TWILIO_AUTH_TOKEN")
 
 
-def getTwilioCredentials(db: Session):
-    variables = crud.get_variables(db)
+async def getTwilioCredentials(db: Session):
+    variables = await crud.get_variables(db)
     number = ''
     sid = ''
     token = ''
@@ -37,15 +37,17 @@ def getTwilioCredentials(db: Session):
     return number, sid, token
 
 
-def send_sms_via_phone_number(phone_number: str, sms: str, db: Session):
-    twilioPhoneNumber, twilioAccountSID, twilioAuthToken = getTwilioCredentials(db)
+async def send_sms_via_phone_number(phone_number: str, sms: str, db: Session):
+    twilioPhoneNumber, twilioAccountSID, twilioAuthToken = await getTwilioCredentials(db)
     
     # Initialize the Twilio client
     client = Client(twilioAccountSID, twilioAuthToken)
-
+    print("sms - :", sms)
+    if not sms:
+        sms = "from getDelmar.com"
     message = client.messages.create(
-        to="+1 708 774 5070",  # Test phone number, replace with `phone_number` in production
-        # to=phone_number,  # Test phone number, replace with `phone_number` in production
+        # to="+1 708 774 5070",  # Test phone number, replace with `phone_number` in production
+        to=phone_number,  # Test phone number, replace with `phone_number` in production
         from_=twilioPhoneNumber,
         body=sms
     )
@@ -56,8 +58,9 @@ def send_sms_via_phone_number(phone_number: str, sms: str, db: Session):
         from_=twilioPhoneNumber,
         body=sms
     )
+    print("send message: ", message)
     # message = client.messages.create(
-    #     to="+1 320 5471980",  # Test phone number, replace with `phone_number` in production
+    #     to="+1 320 547 1980",  # Test phone number, replace with `phone_number` in production
     #     from_=twilioPhoneNumber,
     #     body=sms
     # )
@@ -65,8 +68,8 @@ def send_sms_via_phone_number(phone_number: str, sms: str, db: Session):
     # Optionally print the message SID
     return bool(message.sid)
 
-def send_opt_in_phone(phone_number: str, db: Session):
-    twilioPhoneNumber, twilioAccountSID, twilioAuthToken = getTwilioCredentials(db)
+async def send_opt_in_phone(phone_number: str, db: Session):
+    twilioPhoneNumber, twilioAccountSID, twilioAuthToken = await getTwilioCredentials(db)
     
     # Initialize the Twilio client
     client = Client(twilioAccountSID, twilioAuthToken)
@@ -80,20 +83,14 @@ def send_opt_in_phone(phone_number: str, db: Session):
     # from_phone_number = '+1 708 248 6451'  # Twilio phone number
     print("twilio: ", message_body, from_phone_number)
 
-    message = client.messages.create(
-        body=message_body,
-        # from_=from_phone_number,
-        messaging_service_sid = messaging_service_sid,
-        to="+1 708 774 5070"
-        # to=phone_number
-    )
+    # message = client.messages.create(
+    #     body=message_body,
+    #     # from_=from_phone_number,
+    #     messaging_service_sid = messaging_service_sid,
+    #     to="+1 708 774 5070"
+    #     to=phone_number
+    # )
     
-    message = client.messages.create(
-        body=message_body,
-        # from_=from_phone_number,
-        messaging_service_sid = messaging_service_sid,
-        to="+17735179242"
-    )
     message = client.messages.create(
         body=message_body,
         # from_=from_phone_number,
@@ -101,15 +98,21 @@ def send_opt_in_phone(phone_number: str, db: Session):
         to=phone_number
         # to=phone_number
     )
+    # message = client.messages.create(
+    #     body=message_body,
+    #     # from_=from_phone_number,
+    #     messaging_service_sid = messaging_service_sid,
+    #     to="+17735179242"
+    # )
     
 
     # Optionally print the message SID
     return bool(message.sid)
     
-def send(project_id: int, db: Session):
-    project = crud.get_project(db, project_id)
+async def send(project_id: int, db: Session):
+    project = await crud.get_project(db, project_id)
     sent_time = datetime.utcnow()
-    customer = crud.get_customer(db, project.customer_id)
+    customer = await crud.get_customer(db, project.customer_id)
     phone_number = customer.phone
     email = customer.email
     phone_sent_success = False
@@ -118,29 +121,28 @@ def send(project_id: int, db: Session):
     
     print("phone_number: ", phone_number)
     print("email: ", email)
-    print("phone_number: ", phone_number)
     # return True
     
     # if not crud.check_duplicate_message(db, project.last_message):  # check if it is a duplicate message
     try:
         if phone_number:
-            phone_sent_success = send_sms_via_phone_number(phone_number, project.last_message, db)
+            phone_sent_success = await send_sms_via_phone_number(phone_number, project.last_message, db)
     except Exception as e:
         print(f"Error sending SMS: {e}")
         phone_sent_success = False
     try:
         if email:
-            email_sent_success = send_mail(project.last_message, "Update", email, db)
+            email_sent_success = await send_mail(project.last_message, "Update", email, db)
     except Exception as e:
         print(f"Error sending email: {e}")
         email_sent_success = False
-    crud.update_project_sent_status(db, project_id, phone_sent_success, email_sent_success)
+    await crud.update_project_sent_status(db, project_id, phone_sent_success, email_sent_success)
     # else:
     #     crud.update_project_sent_status(db, project_id, phone_sent_success, email_sent_success)
     #     return False
     
     print("phone_sent_success: ", phone_sent_success)
     print("email_sent_success: ", email_sent_success)
-    crud.set_project_sent(db, project_id, 3, sent_time)
-    crud.insert_message_history(db, project.last_message, project_id)
+    await crud.set_project_sent(db, project_id, 3, sent_time)
+    await crud.insert_message_history(db, project.last_message, project_id)
     return True

@@ -11,13 +11,18 @@ import uvicorn
 import schedule
 import time
 import asyncio
+from contextlib import asynccontextmanager
 
 import requests
 import logging
 import logging.config
 from datetime import datetime, timedelta
+import logging
+
 app = FastAPI()
 
+# Disable all SQLAlchemy logging
+logging.getLogger('sqlalchemy').setLevel(logging.CRITICAL)
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,39 +37,34 @@ app.add_middleware(
 app.include_router(dashboard.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 
-# send_sms_via_phone_number("+13205471980", "How are you, @rayleigh!")
-
-def run_schedule():
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
 
 @app.get("/")
 async def health_checker():
     return {"status": "success"}
 
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-    asyncio.run(create_tables())
+async def init():
+    print("--------------dd--------------")
+    async with AsyncSessionLocal() as db:
+        variables = await crud.get_variables(db)
+        if variables is None:
+            crud.create_variables(db)
+            
+        status = await crud.get_status(db)
+        if status is None:
+            crud.create_status(db)
 
-    
-    db = AsyncSessionLocal()
-    
-    variables = crud.get_variables(db)
-    if variables is None:
-        crud.create_variables(db)
-        
-    status = crud.get_status(db)
-    if status is None:
-        crud.create_status(db)
-    
-    schedule.every(3).hours.do(job, source="BuilderTrend")
+async def main():
+    await create_tables()
+    await init()
 
+
+def run_scheduler():
     # Calculate the time for the second job to start 1.5 hours after the first job
     first_job_time = datetime.now()
     second_job_start_time = (first_job_time + timedelta(hours=1.5)).strftime("%H:%M")
 
-    # Schedule the second job function to run every 3 hours starting 1.5 hours from now
+    # Schedule jobs to run every 3 hours
+    schedule.every(3).hours.do(job, source="BuilderTrend")
     schedule.every(3).hours.at(second_job_start_time).do(job, source="Xactanalysis")
 
     # Run the scheduler in an infinite loop
@@ -72,4 +72,14 @@ if __name__ == "__main__":
         schedule.run_pending()
         time.sleep(1)
 
-    # uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+if __name__ == "__main__":
+     # Run asynchronous tasks
+    asyncio.run(main())
+    
+    # Run the scheduler in a separate thread
+    import threading
+    # scheduler_thread = threading.Thread(target=run_scheduler)
+    # scheduler_thread.start()
+
+    # Run Uvicorn server
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
