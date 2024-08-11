@@ -62,15 +62,15 @@ async def scraped_result(request: Request, background_tasks: BackgroundTasks, db
 
 @router.get('/table')
 async def get_table(currentTab: int, email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
-    print("currentTab: ", currentTab);
+    print("currentTab: ", currentTab)
     main_table_data = await crud.get_main_table(db)  # Replace with appropriate await crud operation
     
     # print("main_table_data: ", main_table_data)
     result = []
     for item in main_table_data:
-        # print("id ------", item.project_id)
         if item.is_deleted != currentTab:
             continue
+        print("id ------", item.project_id)
         if not item.project_id:
             continue
         dict_item = item._asdict()

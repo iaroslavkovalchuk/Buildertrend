@@ -74,7 +74,8 @@ async def insert_customer(db: AsyncSession, manager_name: str, manager_phone: st
             address=address,
             sending_method=1,
             opt_in_status_email=0,
-            opt_in_status_phone=0
+            opt_in_status_phone=0,
+            is_deleted=0
         )
         db.add(new_customer)
         await db.commit()
@@ -166,7 +167,7 @@ async def insert_project(db: AsyncSession, claim_number: str, customer_id: int, 
         new_project = Project(
             claim_number=claim_number,
             customer_id=customer_id,
-            project_name=project_name
+            project_name=project_name,
         )
         db.add(new_project)
         await db.commit()

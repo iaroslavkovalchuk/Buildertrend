@@ -18,7 +18,7 @@ import aiohttp
 
 async def send_notification(json_data):
     async with aiohttp.ClientSession() as session:
-        async with session.post('http://173.0.155.75/api/v1/notification', json=json_data) as response:
+        async with session.post('http://108.61.203.106/api/v1/notification', json=json_data) as response:
             # Not waiting for the response
             pass
 
