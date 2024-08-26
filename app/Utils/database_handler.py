@@ -103,7 +103,8 @@ async def delete_customer(db: AsyncSession, customer_id: int):
     customer = result.scalar_one_or_none()
 
     if customer:
-        customer.is_deleted = 1
+        status = 1 if customer.is_deleted else 0
+        customer.is_deleted = 1 - status
         await db.commit()
         return customer
     return None
