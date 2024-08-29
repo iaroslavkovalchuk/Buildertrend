@@ -19,7 +19,8 @@ from app.Utils.Requests import send_buildertrend, send_xactanalysis
 
 import socket
 import subprocess
-
+chromedriver_path = "C:\\Users\\Administrator\\.wdm\\drivers\\chromedriver\\win64\\126.0.6478.182\\chromedriver-win32\\chromedriver.exe"
+webdriver_service = Service(executable_path=chromedriver_path)  
 class WebScraper:
     # Create a WebScraper instance
     def __init__(self, builder_user, builder_pass, xact_user, xact_pass):
@@ -35,7 +36,7 @@ class WebScraper:
     def initialize_driver(self):
         chrome_options = Options()
         chrome_options.accept_untrusted_certs = True
-        extension_path = r'C:\SeleniumChromeProfile\Default\Extensions\gmlafnjffcblkipjaelgjdgdpmgmjbfp\1.0.0_0'
+        extension_path = r'C:\gmlafnjffcblkipjaelgjdgdpmgmjbfp\1.0.0_0'
         chrome_options.add_argument('--load-extension={}'.format(extension_path))
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--disable-dev-shm-usage")
@@ -49,7 +50,7 @@ class WebScraper:
             "profile.managed_default_content_settings.images": 2,  # Disable images
             "profile.managed_default_content_settings.stylesheets": 2,  # Disable CSS
         })
-        webdriver_service = Service(ChromeDriverManager().install())
+        # webdriver_service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=webdriver_service, options=chrome_options)
         # driver.maximize_window()
         driver.implicitly_wait(5)
@@ -129,94 +130,95 @@ class WebScraper:
         # self.wait.until(   
         #     lambda d: d.execute_script("""return document.querySelector('[id="spage0"]').querySelectorAll('li').length > 0""")
         # )
-        self.wait.until(   
-            lambda d: d.execute_script("""return document.getElementById('id="spage0') == null""")
-        )
-        # Click claim nth list target
-        self.driver.execute_script(f"""document.querySelector('[id="spage0"]').querySelectorAll('li')[{index}].click()""")
+        try:
+            self.wait.until(   
+                lambda d: d.execute_script("""return document.getElementById('id="spage0') == null""")
+            )
+            # Click claim nth list target
+            self.driver.execute_script(f"""document.querySelector('[id="spage0"]').querySelectorAll('li')[{index}].click()""")
 
-        # Scrape project number
-        project_name = self.driver.execute_script(f"""return document.querySelector('[class="data-point"]').getElementsByTagName('div')[0].textContent""")
-        print(project_name)
+            # Scrape project number
+            project_name = self.driver.execute_script(f"""return document.querySelector('[class="data-point"]').getElementsByTagName('div')[0].textContent""")
+            print(project_name)
 
-        # Scrape claim number
-        claim_number = self.driver.execute_script(f"""return document.querySelector('[id="assignment-id"]').textContent""")
-        print(claim_number)
+            # Scrape claim number
+            claim_number = self.driver.execute_script(f"""return document.querySelector('[id="assignment-id"]').textContent""")
+            print(claim_number)
 
-        # Scrape customer name
-        customer_name = self.driver.execute_script(f"""return document.querySelector('[id="insured-name"]').textContent""")
-        customer_name = self.clear_text(customer_name)
-        print(f"customer_name: {customer_name}")
+            # Scrape customer name
+            customer_name = self.driver.execute_script(f"""return document.querySelector('[id="insured-name"]').textContent""")
+            customer_name = self.clear_text(customer_name)
+            print(f"customer_name: {customer_name}")
 
-
-
-        if "&" in customer_name:
-            parts = customer_name.split("&")
-            # Extract first name from the first part
-            last_name = parts[0].split(" ")[0].strip()
-            # Extract last name from the second part
-            first_name = parts[1].split("\"")[0].strip()
-        else:
-            if ',' in customer_name:
-                parts = customer_name.split(",")
-                last_name = parts[0].strip()
-                first_name = parts[1].strip()
-                # Extract last name from the second part
-                f_parts = first_name.split(" ")
-                first_name = f_parts[1].strip() if len(f_parts) > 1 else f_parts[0].strip()
-            else:
-                parts = customer_name.split(" ")
+            if "&" in customer_name:
+                parts = customer_name.split("&")
                 # Extract first name from the first part
-                first_name = parts[0].strip()
+                last_name = parts[0].split(" ")[0].strip()
                 # Extract last name from the second part
-                last_name = parts[1].strip() if len(parts) > 1 else ""
+                first_name = parts[1].split("\"")[0].strip()
+            else:
+                if ',' in customer_name:
+                    parts = customer_name.split(",")
+                    last_name = parts[0].strip()
+                    first_name = parts[1].strip()
+                    # Extract last name from the second part
+                    f_parts = first_name.split(" ")
+                    first_name = f_parts[1].strip() if len(f_parts) > 1 else f_parts[0].strip()
+                else:
+                    parts = customer_name.split(" ")
+                    # Extract first name from the first part
+                    first_name = parts[0].strip()
+                    # Extract last name from the second part
+                    last_name = parts[1].strip() if len(parts) > 1 else ""
 
-        time.sleep(1)
-        # Click "CLIENT/POLICY" tab
-        self.driver.execute_script(f"""document.getElementById('d_clientpolicy-tab').click()""")
-        # Wait for "CLIENT/POLICY" tab loaded correctly
-        self.wait.until(   
-            lambda d: d.execute_script("""return document.getElementsByClassName('client-policy').length > 0""")
-        )
-        # Scrape address
-        address = self.driver.execute_script(f"""return document.getElementById('dcp_owner_addr').textContent""")
-        address = self.clear_text(address)
-        print(f"address: {address}")
+            time.sleep(1)
+            # Click "CLIENT/POLICY" tab
+            self.driver.execute_script(f"""document.getElementById('d_clientpolicy-tab').click()""")
+            # Wait for "CLIENT/POLICY" tab loaded correctly
+            self.wait.until(   
+                lambda d: d.execute_script("""return document.getElementsByClassName('client-policy').length > 0""")
+            )
+            # Scrape address
+            address = self.driver.execute_script(f"""return document.getElementById('dcp_owner_addr').textContent""")
+            address = self.clear_text(address)
+            print(f"address: {address}")
 
-        # Scrape email
-        email = self.driver.execute_script(f"""return document.getElementById('dcp_owner_email').textContent""")
-        email = self.clear_text(email)
+            # Scrape email
+            email = self.driver.execute_script(f"""return document.getElementById('dcp_owner_email').textContent""")
+            email = self.clear_text(email)
 
-        # Scrape mobile
-        mobile_number = self.driver.execute_script(f"""return document.getElementById('dcp_owner_mobi_phone').textContent""")
-        mobile_number = self.clear_text(mobile_number)
-        # Remove non-digit characters except for '+' and ' '
-        mobile_number = re.sub(r'[^\d\+ ]', '', mobile_number)
+            # Scrape mobile
+            mobile_number = self.driver.execute_script(f"""return document.getElementById('dcp_owner_mobi_phone').textContent""")
+            mobile_number = self.clear_text(mobile_number)
+            # Remove non-digit characters except for '+' and ' '
+            mobile_number = re.sub(r'[^\d\+ ]', '', mobile_number)
 
-        # If the phone number doesn't start with '+', add '+1 '
-        if not mobile_number.startswith('+'):
-            mobile_number = '+1 ' + mobile_number
-        print(f"mobile_number: {mobile_number}")
-        # Append the customer list
+            # If the phone number doesn't start with '+', add '+1 '
+            if not mobile_number.startswith('+'):
+                mobile_number = '+1 ' + mobile_number
+            print(f"mobile_number: {mobile_number}")
+            # Append the customer list
 
-        # Scrape node_list
-        note_list = self.get_note_list()
-        print("note_list: ", len(note_list))
-        self.reports.append({
-            'first_name': first_name,
-            'last_name': last_name,
-            'phone': mobile_number,
-            'address': address,
-            'email': email,
-            'claim_number': claim_number,
-            'project_name': project_name,
-            'manager_name': "Angela Bermudez",
-            'manager_phone': "+1 312 443 2120",
-            'manager_email': "angelab@getdelmar.com",
-            'reports': note_list
-        })
-        print("first_name", first_name)
-        print("last_name", last_name)
+            # Scrape node_list
+            note_list = self.get_note_list()
+            print("note_list: ", len(note_list))
+            self.reports.append({
+                'first_name': first_name,
+                'last_name': last_name,
+                'phone': mobile_number,
+                'address': address,
+                'email': email,
+                'claim_number': claim_number,
+                'project_name': project_name,
+                'manager_name': "Angela Bermudez",
+                'manager_phone': "+1 312 443 2120",
+                'manager_email': "angelab@getdelmar.com",
+                'reports': note_list
+            })
+            print("first_name", first_name)
+            print("last_name", last_name)
+        except Exception as e:
+            print(e)
 
     # Scrape notes from the table
     def get_note_list(self):
