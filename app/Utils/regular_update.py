@@ -42,18 +42,19 @@ async def job(source: str):
     return
 
 
-def process_phone_number(phone):
-    phone.replace(" ", "")
-    if len(phone) < 5:
-        return ""
-    phone.replace('(', '')
-    phone.replace(')', '')
-    phone.replace('-', '')
-    phone.replace('.', '')
-    if '+' in phone:
-        return phone
-    else:
-        return '+1' + phone
+def process_phone_number(phone):  
+    phone = phone.replace("Call", "")  
+    phone = phone.replace(" ", "")  
+    phone = phone.replace('(', '')  
+    phone = phone.replace(')', '')  
+    phone = phone.replace('-', '')  
+    phone = phone.replace('.', '')  
+    if len(phone) < 5:  
+        return ""  
+    if '+' in phone:  
+        return phone  
+    else:  
+        return '+1' + phone  
         
 
 async def update_notification(db: Session):
