@@ -303,45 +303,6 @@ async def set_opt_in_status(email: str, response: str, db: Session = Depends(get
         return "Sent Successfully!"
     
 
-@router.post("/incoming-sms")
-async def handle_sms(Body: str = Form(...), From: str = Form(...), db: Session = Depends(get_db)):
-    # Convert message to uppercase for consistent matching
-    incoming_msg = Body.strip().upper()
-    From = From.replace(' ', '')
-    print("dashboard - From: ", From)
-    # Create a Twilio MessagingResponse object
-    response = MessagingResponse()
-    
-    # Check if the incoming message is a recognized keyword
-    if incoming_msg == "#STOP" or incoming_msg == "STOP":
-        print("dashboard - incoming_msg:", incoming_msg)
-        customer = await crud.find_customer_with_phone(db, From)
-        if customer is not None:
-            await crud.update_opt_in_status_phone(db, customer.id, 3) # Set as Opt Out
-        response.message("You have been unsubscribed from messages. Reply with #START to subscribe again.")
-        
-    elif incoming_msg == "#START" or incoming_msg == "START" :
-        print("dashboard - incoming_msg:", incoming_msg)
-        # Update your database to mark this number as opted-in
-        customer = await crud.find_customer_with_phone(db, From)
-        print("dashboard - From:", From)
-        print("dashboard - customer:", customer.id)
-        if customer is not None:
-            await crud.update_opt_in_status_phone(db, customer.id, 2) # Set as Opt In
-        response.message("You have been subscribed to messages.")
-        
-    else:
-        print("dashboard - incoming_msg:", incoming_msg)
-        # The message is not a recognized keyword
-        response.message("Sorry, we did not understand your message. Reply with #STOP to unsubscribe or #START to subscribe.")
-
-    data = await crud.get_status(db)
-    if data is not None:
-        await crud.set_db_update_status(db, data.id, 1)
-
-    # Return the response to Twilio
-    print("dashboard - response: ", response)
-    return Response(content=str(response), media_type="application/xml")
 
 
 @router.get('/variables')
