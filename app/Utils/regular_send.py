@@ -7,6 +7,8 @@ from datetime import datetime
 import app.Utils.database_handler as crud
 from app.Model.DatabaseModel import Variables
 import os
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
 
 load_dotenv()
 
@@ -109,40 +111,30 @@ async def send_opt_in_phone(phone_number: str, db: Session):
     # Optionally print the message SID
     return bool(message.sid)
     
-async def send(project_id: int, db: Session):
-    project = await crud.get_project(db, project_id)
+async def send(customer_id: int, db: Session):
+    customer = await crud.get_customer(db, customer_id)
     sent_time = datetime.utcnow()
-    customer = await crud.get_customer(db, project.customer_id)
-    phone_number = customer.phone
-    email = customer.email
-    phone_sent_success = False
-    email_sent_success = False
-    
-    
-    print("phone_number: ", phone_number)
-    print("email: ", email)
-    # return True
-    
-    # if not crud.check_duplicate_message(db, project.last_message):  # check if it is a duplicate message
-    try:
-        if phone_number:
-            phone_sent_success = await send_sms_via_phone_number(phone_number, project.last_message, db)
-    except Exception as e:
-        print(f"Error sending SMS: {e}")
-        phone_sent_success = False
-    try:
-        if email:
-            email_sent_success = await send_mail(project.last_message, "Update", email, db)
-    except Exception as e:
-        print(f"Error sending email: {e}")
-        email_sent_success = False
-    await crud.update_project_sent_status(db, project_id, phone_sent_success, email_sent_success)
-    # else:
-    #     crud.update_project_sent_status(db, project_id, phone_sent_success, email_sent_success)
-    #     return False
-    
-    print("phone_sent_success: ", phone_sent_success)
-    print("email_sent_success: ", email_sent_success)
-    await crud.set_project_sent(db, project_id, 3, sent_time)
-    await crud.insert_message_history(db, project.last_message, project_id)
-    return True
+    phone_numbers = customer.phone_numbers
+
+    # Define a function to send all SMS in a single separate thread
+    def send_all_sms():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        all_sent_success = True
+        for phone_number in phone_numbers:
+            try:
+                phone_sent_success = loop.run_until_complete(send_sms_via_phone_number(phone_number, customer.last_message, db))
+                loop.run_until_complete(crud.update_sent_status(db, customer_id, phone_sent_success))
+                if not phone_sent_success:
+                    all_sent_success = False
+            except Exception as e:
+                print(f"Error sending SMS to {phone_number}: {e}")
+                all_sent_success = False
+        return all_sent_success
+
+    # Use ThreadPoolExecutor to run the send_all_sms function in a separate thread
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(send_all_sms)
+        all_sent_success = future.result()
+
+    return all_sent_success

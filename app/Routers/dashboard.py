@@ -1,5 +1,6 @@
 from fastapi import FastAPI,BackgroundTasks, APIRouter, Depends, HTTPException, status, File, UploadFile, Request, Form, Response
 from fastapi.responses import FileResponse
+from typing import List
 from twilio.twiml.messaging_response import MessagingResponse
 from sqlalchemy.orm import Session
 from database import AsyncSessionLocal
@@ -37,86 +38,48 @@ async def get_db():
     async with AsyncSessionLocal() as session:
         yield session
 
-@router.get('/update-db')
-async def update_db(source: str, email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
-    print("dashboard - source: ", source)
-    status = await crud.get_status(db)
-    update_status = {}
-    if source == "BuilderTrend":
-        update_status = ScrapingStatusModel(buildertrend_total=status.buildertrend_total, buildertrend_current=0, xactanalysis_total=status.xactanalysis_total, xactanalysis_current=status.xactanalysis_current).dict()
-    else:
-        update_status = ScrapingStatusModel(buildertrend_total=status.buildertrend_total, buildertrend_current=status.buildertrend_current, xactanalysis_total=status.xactanalysis_total, xactanalysis_current=0).dict()
-    print("**update_status: ", update_status)
-    await crud.update_status(db, status.id, **update_status)
-    
-    await job(source)
-    return True
-
-@router.post('/get-scraped-result')
-async def scraped_result(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    data = await request.json()
+@router.post('/add-customer')
+async def add_customer(data: MainTableModel, email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
     print("dashboard - data: ", data)
-    await update_database(data)
+    await crud.insert_customer(db, data)
     # Process the raw JSON data here
-    return {"received": len(data), "message": "Raw data processed successfully"}
+    return {"received": data, "message": "Raw data processed successfully"}
 
-@router.get('/table')
-async def get_table(currentTab: int, email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
-    print("currentTab: ", currentTab)
+@router.post('/update-customer')
+async def update_customer(data: MainTableModel, email: Annotated[str, Depends(get_current_user)], customer_id: int, db: Session = Depends(get_db)):
+    print("dashboard - data: ", data)
+    print("dashboard - customer_id: ", customer_id)
+    await crud.update_customer(db, customer_id, data)
+    return {"success": "true"}
+
+
+@router.get('/delete-customer')
+async def delete_customer_route(email: Annotated[str, Depends(get_current_user)], customer_id: int, db: Session = Depends(get_db)):
+    await crud.delete_customer(db, customer_id)
+    return {"success": "true"}
+
+
+@router.get('/customer-table')
+async def get_customer_table(db: Session = Depends(get_db)):
     main_table_data = await crud.get_main_table(db)  # Replace with appropriate await crud operation
     
-    print("main_table_data: ", main_table_data)
-    result = []
-    for item in main_table_data:
-        if item.is_deleted != currentTab:
-            if item.is_deleted is None:
-                if currentTab == 1:
-                    continue
-            else:
-                continue
-        # print("id ------", item.project_id)
-        if not item.project_id:
-            continue
-        dict_item = item._asdict()
-        if dict_item['message_status'] != 3:
-            result.append(dict_item)
+    # Convert the SQLAlchemy result rows to dictionaries
+    main_table_data_dicts = [
+        {
+            "id": data.id,
+            "last_message": data.last_message,
+            "message_status": data.message_status,
+            "qued_timestamp": data.qued_timestamp,
+            "sent_timestamp": data.sent_timestamp,
+            "sent_success": data.sent_success,
+            "image_url": data.image_url,
+            "phone_numbers": data.phone_numbers,
+            "num_sent": data.num_sent
+        }
+        for data in main_table_data
+    ]
     
-    send_result = []
-    history_messages = await crud.get_all_message_history(db)
-    for history_message in history_messages:
-        sent_item = await crud.get_project(db, history_message.project_id)
-        if sent_item:
-            sent_item = {column.name: getattr(sent_item, column.name) for column in sent_item.__table__.columns}
-        else:
-            continue
-        
-        customer = await crud.get_customer(db, sent_item['customer_id'])
-        if not customer:
-            continue
-        if customer.is_deleted != currentTab:
-            continue
-        
-        sent_item['customer_id'] = customer.id
-        sent_item['first_name'] = customer.first_name
-        sent_item['last_name'] = customer.last_name
-        sent_item['phone'] = customer.phone
-        sent_item['email'] = customer.email
-        sent_item['opt_in_status_email'] = customer.opt_in_status_email
-        sent_item['opt_in_status_phone'] = customer.opt_in_status_phone
-        sent_item['sending_method'] = customer.sending_method
-        sent_item['is_deleted'] = customer.is_deleted
-        sent_item['last_message'] = history_message.message
-        sent_item['message_status'] = 3
-        sent_item['sent_timestamp'] = history_message.sent_time
-        sent_item['project_id'] = uuid.uuid4().int
-        sent_item['history_id'] = history_message.id
-        send_result.append(sent_item)
-        # print("tmp_item: ", sent_item)
-    send_result.reverse()
-    print("len: ", len(send_result))
-    result.extend(send_result)
-            
-    return result
+    return main_table_data_dicts
 
 @router.get('/qued')
 async def make_qued(email: Annotated[str, Depends(get_current_user)], project_id: int, db: Session = Depends(get_db)):
@@ -152,29 +115,6 @@ async def update_last_message(email: Annotated[str, Depends(get_current_user)], 
     await crud.update_project(db, last_message.project_id, last_message=last_message.message)
     return {"success": "true"}
 
-@router.get('/download-project-message')
-async def download_project_message(email: Annotated[str, Depends(get_current_user)], project_id: int, db: Session = Depends(get_db)):
-    message = await crud.get_message_history_by_project_id(db, project_id)
-    print(message)
-    
-    # Write data to a text file
-    file_path = 'message.txt'
-    with open(file_path, 'w') as f:
-        f.write(message + '\n')
-    
-    # Ensure file was saved
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="File not found")
-    
-    # Return file as response
-    return FileResponse(file_path, media_type='application/octet-stream', filename='message.txt')
-
-
-@router.get('/delete-project')
-async def delete_project(email: Annotated[str, Depends(get_current_user)], project_id: int, db: Session = Depends(get_db)):
-    await crud.delete_project(db, project_id)
-
-
 @router.get('/download-customer-message')
 async def download_customer_message(email: Annotated[str, Depends(get_current_user)], customer_id: int, db: Session = Depends(get_db)):
     message = await crud.get_message_history_by_customer_id(db, customer_id)
@@ -208,19 +148,9 @@ async def download_history_message(email: Annotated[str, Depends(get_current_use
     # Return file as response
     return FileResponse(file_path, media_type='application/octet-stream', filename='message.txt')
 
-@router.get('/delete-customer')
-async def delete_customer_route(email: Annotated[str, Depends(get_current_user)], customer_id: int, db: Session = Depends(get_db)):
-    await crud.delete_customer(db, customer_id)
-    return {"success": "true"}
-
-@router.get('/restore-customer')
-async def restore_customer_route(email: Annotated[str, Depends(get_current_user)], customer_id: int, db: Session = Depends(get_db)):
-    await crud.restore_customer(db, customer_id)
-    return {"success": "true"}
-
 @router.get('/send')
-async def send_message_route(email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
-    send()
+async def send_message_route(customer_id: int, email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
+    await send(customer_id, db)
     return {"success": "true"}
 
 @router.post('/set-variables')
@@ -247,13 +177,6 @@ async def get_timer(email: Annotated[str, Depends(get_current_user)], db: Sessio
         
         
     return {"success": "true"}
-
-@router.get('/rerun-chatgpt')
-async def rerun_chatgpt_route(email: Annotated[str, Depends(get_current_user)], db: Session = Depends(get_db)):
-    # background_tasks.add_task(update_notification, db)
-    await update_notification(db)
-    return {"success": "true"}
-
 
 
 @router.get('/set-opt-in-status-email')
@@ -326,19 +249,3 @@ async def get_variables(email: Annotated[str, Depends(get_current_user)], db: Se
         return True
     else:
         return False
-
-
-@router.post("/update-scraping-status")
-async def update_scraping_status(scraping_status: ScrapingStatusModel, db: Session = Depends(get_db)):
-    status = await crud.get_status(db)
-    print("scraping_status: ", scraping_status)
-    if status is not None:
-        update_status = {k: (getattr(status, k) if v == -1 else v) for k, v in scraping_status.dict().items()}
-        await crud.update_status(db, status.id, **update_status)
-    return {"success": "true"}
-
-
-@router.get("/check-scraping-status")
-async def check_scraping_status(db: Session = Depends(get_db)):
-    status = await crud.get_status(db)
-    return status

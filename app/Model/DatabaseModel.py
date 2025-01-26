@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, Boolean, Text
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, Boolean, Text, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -9,19 +9,15 @@ class Customer(Base):
     __tablename__ = 'tbl_customer'
 
     id = Column(Integer, primary_key=True)
-    first_name = Column(String(255))
-    last_name = Column(String(255))
-    email = Column(String(255))
-    phone = Column(String(255))
-    address = Column(String(255))
-    sending_method = Column(Integer)
-    opt_in_status_email = Column(Integer)
-    opt_in_status_phone = Column(Integer)
-    manager_name = Column(String(255))
-    manager_phone = Column(String(255))
-    manager_email = Column(String(255))
-    is_deleted=Column(Integer)
-    projects = relationship('Project', backref='customer')
+    last_message = Column(Text)
+    message_status = Column(Integer)
+    qued_timestamp = Column(DateTime)
+    sent_timestamp = Column(DateTime)
+    sent_success = Column(Integer)
+    image_url = Column(String(255))
+    phone_numbers = Column(JSON)
+    num_sent = Column(Integer)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 class Project(Base):
     __tablename__ = 'tbl_project'
