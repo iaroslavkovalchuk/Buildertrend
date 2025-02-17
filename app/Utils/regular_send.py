@@ -15,7 +15,10 @@ load_dotenv()
 # Dependency to get the database session
 async def get_db():
     async with AsyncSessionLocal() as session:
-        yield session
+        try:
+            yield session
+        finally:
+            await session.close()
         
         
 twilioPhoneNumber = os.getenv("TWILIO_PHONE_NUMBER")
@@ -24,7 +27,9 @@ twilioAuthToken = os.getenv("TWILIO_AUTH_TOKEN")
 
 
 async def getTwilioCredentials(db: Session):
+    print("getTwilioCredentials: ")
     variables = await crud.get_variables(db)
+    print("variables: ", variables)
     number = ''
     sid = ''
     token = ''
@@ -47,26 +52,25 @@ async def send_sms_via_phone_number(phone_number: str, sms: str, db: Session):
     print("sms - :", sms)
     if not sms:
         sms = "from getDelmar.com"
-    message = client.messages.create(
-        # to="+1 708 774 5070",  # Test phone number, replace with `phone_number` in production
-        to=phone_number,  # Test phone number, replace with `phone_number` in production
-        from_=twilioPhoneNumber,
-        body=sms
-    )
-
-    # Send the SMS
-    message = client.messages.create(
-        to="+17735179242",  # Test phone number, replace with `phone_number` in production
-        from_=twilioPhoneNumber,
-        body=sms
-    )
+    
+    
+    # Use a thread pool executor to run the Twilio client in a separate thread
+    loop = asyncio.get_event_loop()
+    with ThreadPoolExecutor() as executor:
+        print("sms: ", sms)
+        # Correctly pass arguments to client.messages.create
+        future = loop.run_in_executor(
+            executor,
+            lambda: client.messages.create(
+                to=phone_number,
+                from_=twilioPhoneNumber,
+                body=sms
+            )
+        )
+        message = await asyncio.wrap_future(future)
+    
     print("send message: ", message)
-    # message = client.messages.create(
-    #     to="+1 320 547 1980",  # Test phone number, replace with `phone_number` in production
-    #     from_=twilioPhoneNumber,
-    #     body=sms
-    # )
-
+    
     # Optionally print the message SID
     return bool(message.sid)
 
@@ -116,15 +120,14 @@ async def send(customer_id: int, db: Session):
     sent_time = datetime.utcnow()
     phone_numbers = customer.phone_numbers
 
-    # Define a function to send all SMS in a single separate thread
-    def send_all_sms():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+    async def send_all_sms():
         all_sent_success = True
         for phone_number in phone_numbers:
             try:
-                phone_sent_success = loop.run_until_complete(send_sms_via_phone_number(phone_number, customer.last_message, db))
-                loop.run_until_complete(crud.update_sent_status(db, customer_id, phone_sent_success))
+                phone_sent_success = await send_sms_via_phone_number(phone_number, customer.last_message, db)
+                print("phone_sent_success: ", phone_sent_success)
+                
+                await crud.update_sent_status(db, customer_id, phone_sent_success)
                 if not phone_sent_success:
                     all_sent_success = False
             except Exception as e:
@@ -132,9 +135,7 @@ async def send(customer_id: int, db: Session):
                 all_sent_success = False
         return all_sent_success
 
-    # Use ThreadPoolExecutor to run the send_all_sms function in a separate thread
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(send_all_sms)
-        all_sent_success = future.result()
+    # Use asyncio to run the send_all_sms function
+    all_sent_success = await send_all_sms()
 
     return all_sent_success

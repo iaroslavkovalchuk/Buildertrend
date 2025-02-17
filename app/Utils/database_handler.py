@@ -4,6 +4,7 @@ from sqlalchemy import func
 from app.Model.DatabaseModel import Customer, Project, MessageHistory, Report, User, Variables, Status
 from datetime import datetime
 from app.Model.MainTable import MainTableModel
+from sqlalchemy.orm import Session
 
 # Utility Functions for Asynchronous Execution
 
@@ -296,7 +297,7 @@ async def delete_user(db: AsyncSession, user_id: int):
     return False
 
 # Variables CRUD Operations
-async def get_variables(db: AsyncSession):
+async def get_variables(db: Session):
     stmt = select(Variables)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()

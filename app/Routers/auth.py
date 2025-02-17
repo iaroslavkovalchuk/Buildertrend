@@ -25,14 +25,17 @@ async def signin_for_access_token(email: str = Form(...), password: str = Form(.
     # print("sigin user: ", user.username)
     if not user:
         return JSONResponse(content={"message": "Email or Password are incorrect!"}, status_code=401)
-    if user.approved == 0:
-        return JSONResponse(content={"message": "This email is not approved!"}, status_code=400)
+    # if user.approved == 0:
+    #     return JSONResponse(content={"message": "This email is not approved!"}, status_code=400)
     access_token = create_access_token(data={"sub": user.username})  # Assuming 'user' is an object
     user_to_return = {'email': user.username, 'hashed_password': user.password}
     return {"access_token": access_token, "token_type": "bearer", "user": user_to_return}
 
 @router.post("/signup")
 async def signup(email: str = Form(...), password: str = Form(...), confirm_password: str = Form(...), db: Session = Depends(get_db)):
+    print("signup - email: ", email)
+    print("signup - password: ", password)
+    print("signup - confirm_password: ", confirm_password)
     if password != confirm_password:
         return JSONResponse(content={"success": False}, status_code=400)
     password_in_db = get_password_hash(password)
